@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useTheme } from '../../context/ThemeContext';
+import { useTheme } from '../../Context/ThemeContext';
 import {
   Check, Palette, Loader2, ArrowLeft,
   Eye, RefreshCw, Sparkles, MonitorSmartphone, Moon, Code2,

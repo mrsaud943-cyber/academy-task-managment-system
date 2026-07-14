@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useUIStyle } from '../../context/Uistylecontext';
+import { useUIStyle } from '../../Context/Uistylecontext';
 import {
   Check, Loader2, ArrowLeft, RefreshCw, LayoutGrid
 } from 'lucide-react';
