@@ -39,18 +39,44 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(cookieParser());
 
+const allowedOrigins = [
+  'http://localhost:5173',
+  process.env.FRONTEND_URL
+].filter(Boolean);
+
+// app.use(
+//   cors({
+//     origin: process.env.FRONTEND_URL || "http://localhost:5173",
+//     credentials: true,
+//     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+//     allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
+//   })
+// );
+
+// ============================================
+// TEST ROUTE
+// ============================================
+
 app.use(
   cors({
-    origin: process.env.FRONTEND_URL || "http://localhost:5173",
+    origin: function (origin, callback) {
+
+      if (!origin) return callback(null, true);
+
+      // Check if origin is allowed
+      if (allowedOrigins.indexOf(origin) !== -1) {
+        callback(null, true);
+      } else {
+        console.warn(`⚠️ CORS blocked request from origin: ${origin}`);
+        callback(new Error('Not allowed by CORS'));
+      }
+    },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
   })
 );
 
-// ============================================
-// TEST ROUTE
-// ============================================
 app.get("/testing", (req, res) => {
   res.status(200).json({
     success: true,
@@ -88,10 +114,10 @@ app.use((req, res) => {
 // ============================================
 app.use((err, req, res, next) => {
   console.error("❌ Server Error:", err.stack);
-  
+
   const statusCode = err.statusCode || 500;
   const message = err.message || "Internal Server Error";
-  
+
   res.status(statusCode).json({
     success: false,
     message: message,
@@ -139,7 +165,7 @@ if (!process.env.VERCEL) {
 export default async function handler(req, res) {
   // Connect to database on first request
   await connectToDatabase();
-  
+
   // Let Express handle the request
   return app(req, res);
 }
