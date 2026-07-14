@@ -4,12 +4,14 @@ import { Toaster } from "react-hot-toast";
 import './index.css';
 
 // ============================================
-// LAZY LOADING - All Components
+// ✅ REGULAR IMPORTS - Context Providers (Must be synchronous)
 // ============================================
+import { ThemeProvider } from "./Context/ThemeContext.jsx";
+import { UIStyleProvider } from "./Context/Uistylecontext.jsx";
 
-// Context Providers
-const ThemeProvider = lazy(() => import("./Context/ThemeContext.jsx"));
-const UIStyleProvider = lazy(() => import("./Context/Uistylecontext.jsx"));
+// ============================================
+// ✅ LAZY LOADING - Only for route components
+// ============================================
 
 // Public Pages
 const Signup = lazy(() => import("./Pages/Signup"));
@@ -48,7 +50,7 @@ const PrivateRoutes = lazy(() => import("./Admin/components/PrivateRoutes"));
 const EmployeeRoutes = lazy(() => import("./Admin/components/EmployeeRoutes"));
 
 // ============================================
-// ✅ PAGE LOADER COMPONENT - DEFINED HERE
+// ✅ PAGE LOADER COMPONENT
 // ============================================
 const PageLoader = () => (
   <div className="flex items-center justify-center min-h-screen bg-[var(--bg-primary)]">
@@ -64,84 +66,67 @@ const PageLoader = () => (
 // ============================================
 const App = () => {
   return (
-    <Suspense fallback={<PageLoader />}>
-      <ThemeProvider>
-        <UIStyleProvider>
-          <BrowserRouter>
-            {/* Toast Notifications */}
-            <Toaster
-              position="top-right"
-              toastOptions={{
-                duration: 4000,
-                style: {
-                  background: 'var(--bg-card)',
-                  color: 'var(--text-primary)',
-                  border: '1px solid var(--border-color)',
-                },
-              }}
-            />
+    // ✅ Context Providers - No Suspense needed around them
+    <ThemeProvider>
+      <UIStyleProvider>
+        <BrowserRouter>
+          <Toaster
+            position="top-right"
+            toastOptions={{
+              duration: 4000,
+              style: {
+                background: 'var(--bg-card)',
+                color: 'var(--text-primary)',
+                border: '1px solid var(--border-color)',
+              },
+            }}
+          />
 
-            <Suspense fallback={<PageLoader />}>
-              <Routes>
-                {/* ===== PUBLIC ROUTES ===== */}
-                <Route element={<EmployeeRoutes />}>
-                  <Route path="/" element={<Signup />} />
-                  <Route path="/login" element={<Login />} />
+          {/* ✅ Only route components are lazy loaded */}
+          <Suspense fallback={<PageLoader />}>
+            <Routes>
+              {/* ===== PUBLIC ROUTES ===== */}
+              <Route element={<EmployeeRoutes />}>
+                <Route path="/" element={<Signup />} />
+                <Route path="/login" element={<Login />} />
+              </Route>
+
+              {/* ===== EMPLOYEE ROUTES ===== */}
+              <Route path="/layout" element={<Layouts />}>
+                <Route path="desboards" element={<Desboards />} />
+                <Route path="taskmanager" element={<TaskManager />} />
+                <Route path="projectmanagment" element={<ProjectManagment />} />
+                <Route path="attendace" element={<Attendace />} />
+                <Route path="profile" element={<EmployeeProfile />} />
+                <Route path="ranking-employees" element={<RankingEmployee />} />
+              </Route>
+
+              {/* ===== ADMIN ROUTES ===== */}
+              <Route element={<PrivateRoutes />}>
+                <Route path="/admin" element={<Layout />}>
+                  <Route path="dashboard" element={<Desboard />} />
+                  <Route path="users" element={<Users />} />
+                  <Route path="users/:userId" element={<UserDetail />} />
+                  <Route path="project" element={<Project />} />
+                  <Route path="project/:projectId" element={<ProjectDetail />} />
+                  <Route path="attendance" element={<AdminAttendance />} />
+                  <Route path="attendance-history" element={<AttenddanceHistory />} />
+                  <Route path="employees-ranking" element={<EmployeesRanking />} />
+                  <Route path="deadline-ranking" element={<DeadlineRanking />} />
+                  <Route path="history" element={<History />} />
+                  <Route path="profile" element={<Profile />} />
+                  <Route path="theme-settings" element={<ThemeSettings />} />
+                  <Route path="ui-settings" element={<UIStyleSettings />} />
+                  <Route path="admin-setting" element={<AdminSettings />} />
                 </Route>
+              </Route>
 
-                {/* ===== EMPLOYEE ROUTES ===== */}
-                <Route path="/layout" element={<Layouts />}>
-                  <Route path="desboards" element={<Desboards />} />
-                  <Route path="taskmanager" element={<TaskManager />} />
-                  <Route path="projectmanagment" element={<ProjectManagment />} />
-                  <Route path="attendace" element={<Attendace />} />
-                  <Route path="profile" element={<EmployeeProfile />} />
-                  <Route path="ranking-employees" element={<RankingEmployee />} />
-                </Route>
-
-                {/* ===== ADMIN ROUTES ===== */}
-                <Route element={<PrivateRoutes />}>
-                  <Route path="/admin" element={<Layout />}>
-                    {/* Dashboard */}
-                    <Route path="dashboard" element={<Desboard />} />
-
-                    {/* Users */}
-                    <Route path="users" element={<Users />} />
-                    <Route path="users/:userId" element={<UserDetail />} />
-
-                    {/* Projects */}
-                    <Route path="project" element={<Project />} />
-                    <Route path="project/:projectId" element={<ProjectDetail />} />
-
-                    {/* Attendance */}
-                    <Route path="attendance" element={<AdminAttendance />} />
-                    <Route path="attendance-history" element={<AttenddanceHistory />} />
-
-                    {/* Rankings */}
-                    <Route path="employees-ranking" element={<EmployeesRanking />} />
-                    <Route path="deadline-ranking" element={<DeadlineRanking />} />
-
-                    {/* History */}
-                    <Route path="history" element={<History />} />
-
-                    {/* Profile */}
-                    <Route path="profile" element={<Profile />} />
-
-                    {/* ===== SETTINGS ROUTES ===== */}
-                    <Route path="theme-settings" element={<ThemeSettings />} />
-                    <Route path="ui-settings" element={<UIStyleSettings />} />
-                    <Route path="admin-setting" element={<AdminSettings />} />
-                  </Route>
-                </Route>
-
-                {/* ===== STANDALONE THEME SETTINGS ===== */}
-                <Route path="/theme-settings" element={<ThemeSettings />} />
-              </Routes>
-            </Suspense>
-          </BrowserRouter>
-        </UIStyleProvider>
-      </ThemeProvider>
-    </Suspense>
+              <Route path="/theme-settings" element={<ThemeSettings />} />
+            </Routes>
+          </Suspense>
+        </BrowserRouter>
+      </UIStyleProvider>
+    </ThemeProvider>
   );
 };
 
