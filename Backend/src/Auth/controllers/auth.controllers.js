@@ -35,10 +35,22 @@ export const register = async (req, res) => {
 
     // Generate token
     const token = jwt.sign(
-      { id: user._id, email: user.email, role: user.role },
+      { id: user._id, role: user.role },
       process.env.JWT_SECRET,
       { expiresIn: "7d" }
     );
+
+    res.cookie("token", token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "none",
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+    });
+
+    res.status(200).json({
+      success: true,
+      user,
+    });
 
     // ✅ Send response with _id
     res.status(201).json({
@@ -114,7 +126,7 @@ export const login = async (req, res) => {
     res.cookie("token", token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
-      sameSite: "lax", // Agar frontend aur backend different domains par hain to "none" + secure:true use karo
+      sameSite: "none",
       maxAge: 7 * 24 * 60 * 60 * 1000,
     });
 
