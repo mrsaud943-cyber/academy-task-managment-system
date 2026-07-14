@@ -9,6 +9,7 @@ const Signup = () => {
     name: "",
     email: "",
     password: "",
+    role:"admin"
   });
 
   const [status, setStatus] = useState({
