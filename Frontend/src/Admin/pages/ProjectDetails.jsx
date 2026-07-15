@@ -108,6 +108,49 @@ const ProjectDetail = () => {
     }
   };
 
+
+  const checkAndUpdateDeadlineMarks = async () => {
+  if (!project?.tasks) return;
+
+  const today = new Date();
+  let updated = false;
+
+  for (const task of project.tasks) {
+    // Check if task has deadline, is not completed, and deadline has passed
+    if (task.endDate && !task.completed) {
+      const deadline = new Date(task.endDate);
+      if (deadline < today) {
+        // If marks are not already 0, update them
+        if (task.obtainedMarks !== 0) {
+          updated = true;
+          try {
+            await api.put(`${API_BASE_URL}/${projectId}/tasks/${task._id}`, {
+              obtainedMarks: 0,
+              basicWork: task.basicWork || false,
+              completed: task.completed || false,
+              tested: task.tested || false,
+            });
+          } catch (error) {
+            console.error('Error updating deadline marks:', error);
+          }
+        }
+      }
+    }
+  }
+
+  if (updated) {
+    await fetchProject();
+    toast.warning('🚨 Some tasks had their marks reset to 0 due to missed deadlines!');
+  }
+};
+
+// Add this useEffect to run when project loads
+useEffect(() => {
+  if (project && project.tasks) {
+    checkAndUpdateDeadlineMarks();
+  }
+}, [projectId, project?._id]);
+
   const fetchProject = async () => {
     setLoading(true);
     try {
