@@ -357,8 +357,6 @@ heroku.yml
 # VERCEL
 # ============================
 .vercel/
-.vercelignore
-vercel.json
 
 # ============================
 # NETLIFY
