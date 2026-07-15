@@ -96,7 +96,8 @@ app.use("/api/projects", projectroutes);
 app.use("/api/attendance", attendanceroutes);
 app.use("/api/ranking", rankingRoutes);
 app.use('/api/geocode', geocodeRoutes);
-app.use('/api/location', locationRoutes);
+// app.use('/api', locationRoutes);
+app.use("/api", locationRoutes);
 app.use("/api/members", memberRoutes);
 
 // ============================================
