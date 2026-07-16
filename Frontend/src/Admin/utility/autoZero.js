@@ -1,12 +1,9 @@
-// utils/autoZero.js
 import api from "../../service/api.js";
 import toast from "react-hot-toast";
 
 export const autoZeroMissedTasks = async () => {
-  try {
-    console.log("🔄 Running auto-zero check for missed deadlines...");
-    
-    // Get all projects
+  try {    
+
     const res = await api.get("/projects");
     const allProjects = res.data || [];
     
