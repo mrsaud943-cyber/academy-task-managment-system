@@ -22,6 +22,8 @@ import geocodeRoutes from './src/Routes/geocode.routes.js';
 import memberRoutes from "./src/Routes/members.routes.js";
 import locationRoutes from './src/Routes/location.routes.js';
 
+import { startCronJobs } from "./src/services/cron.job.js";
+
 // Import Controllers
 import { initializeSettings } from "./src/Controllers/setting.controller.js";
 

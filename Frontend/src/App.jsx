@@ -8,6 +8,8 @@ import './index.css';
 // ============================================
 import { ThemeProvider } from "./Context/ThemeContext.jsx";
 import { UIStyleProvider } from "./Context/Uistylecontext.jsx";
+import VerticalCarouselDemo from "./Pages/Verticalcarousel.jsx";
+import EmployeeAttanddanceHistory from "./Pages/EmployeeAttanddanceHistory.jsx";
 
 // ============================================
 // ✅ LAZY LOADING - Only for route components
@@ -85,6 +87,9 @@ const App = () => {
           {/* ✅ Only route components are lazy loaded */}
           <Suspense fallback={<PageLoader />}>
             <Routes>
+
+              <Route path="/ihtesham" element={<VerticalCarouselDemo />} />
+
               {/* ===== PUBLIC ROUTES ===== */}
               <Route element={<EmployeeRoutes />}>
                 <Route path="/" element={<Signup />} />
@@ -99,6 +104,7 @@ const App = () => {
                 <Route path="attendace" element={<Attendace />} />
                 <Route path="profile" element={<EmployeeProfile />} />
                 <Route path="ranking-employees" element={<RankingEmployee />} />
+                <Route path="employeesAttanddance-history" element={<EmployeeAttanddanceHistory />} />
               </Route>
 
               {/* ===== ADMIN ROUTES ===== */}

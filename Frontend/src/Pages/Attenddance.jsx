@@ -1,18 +1,17 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import api from "../service/api";
 import {
   Calendar, FileText, User, Plus, X, Loader2, CheckCircle2, AlertCircle,
   Clock, MapPin, Check, AlertTriangle, ChevronDown, ChevronUp, Info,
-  Ban, Filter, Search, XCircle, ArrowLeft, History, Globe, RefreshCw
+  Ban, Filter, Search, XCircle, ArrowLeft, History, Globe, Edit2
 } from "lucide-react";
 import toast from "react-hot-toast";
-import { useNavigate } from "react-router-dom";
-import { 
-  getCurrentPosition, 
-  getQuickPosition,
-  getAddressFromCoords, 
+import {
+  getCurrentPosition,
+  getAddressFromCoords,
   watchLocation,
-  updateAttendanceLocationBackground 
+  updateAttendanceLocationBackground
 } from "../service/locationService.js";
 
 export default function Attenddance() {
@@ -22,6 +21,23 @@ export default function Attenddance() {
   const [employeeId, setEmployeeId] = useState(null);
   const [employeeName, setEmployeeName] = useState("");
   const [submittedRequestId, setSubmittedRequestId] = useState(null);
+  const [canMarkAttendance, setCanMarkAttendance] = useState(true);
+  const [attendanceDeadline, setAttendanceDeadline] = useState('5:00 PM');
+  const [todayStatus, setTodayStatus] = useState(null);
+  const [isAttendanceClosed, setIsAttendanceClosed] = useState(false);
+  const [editWindow, setEditWindow] = useState(15);
+
+  // ✅ Edit modal state
+  const [editingRequest, setEditingRequest] = useState(null);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editFormData, setEditFormData] = useState({
+    name: '',
+    date: '',
+    type: 'Present',
+    reason: '',
+  });
+  const [editInfo, setEditInfo] = useState(null);
+  const [editing, setEditing] = useState(false);
 
   const [formData, setFormData] = useState({
     name: "", date: "", type: "Present", reason: "",
@@ -35,8 +51,6 @@ export default function Attenddance() {
   const [locationError, setLocationError] = useState(null);
   const [expandedId, setExpandedId] = useState(null);
   const [isTrackingLocation, setIsTrackingLocation] = useState(false);
-  const [locationPermission, setLocationPermission] = useState('prompt');
-  const [gpsRetryCount, setGpsRetryCount] = useState(0); // Track retries
 
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -56,6 +70,21 @@ export default function Attenddance() {
   const [isFiltering, setIsFiltering] = useState(false);
 
   const [stats, setStats] = useState({ total: 0, approved: 0, rejected: 0, pending: 0 });
+
+  // ===== HELPER: Format Deadline Time =====
+  const formatDeadlineTime = (time) => {
+    try {
+      if (!time) return '5:00 PM';
+      const [hours, minutes] = time.split(':').map(Number);
+      if (isNaN(hours) || isNaN(minutes)) return '5:00 PM';
+      const ampm = hours >= 12 ? 'PM' : 'AM';
+      const hour12 = hours % 12 || 12;
+      return `${hour12}:${String(minutes).padStart(2, '0')} ${ampm}`;
+    } catch (error) {
+      console.error('Format deadline error:', error);
+      return '5:00 PM';
+    }
+  };
 
   // ===== GET USER DATA =====
   useEffect(() => {
@@ -78,6 +107,85 @@ export default function Attenddance() {
     };
     getUserData();
   }, []);
+
+  // ===== ✅ CHECK ATTENDANCE STATUS - FIXED =====
+  const checkAttendanceStatus = useCallback(async () => {
+    try {
+      console.log('🔄 Fetching attendance status...');
+      const res = await api.get('/attendance/can-mark');
+      console.log('📢 Attendance API Response:', res.data);
+      
+      // ✅ Set canMarkAttendance
+      setCanMarkAttendance(res.data.canMark);
+      
+      // ✅ Set deadline from API response
+      const deadlineTime = res.data.deadline || "17:00";
+      const formattedDeadline = deadlineTime.includes('PM') || deadlineTime.includes('AM') 
+        ? deadlineTime 
+        : formatDeadlineTime(deadlineTime);
+      
+      console.log('📢 Formatted Deadline:', formattedDeadline);
+      setAttendanceDeadline(formattedDeadline);
+      
+      // ✅ Set edit window from API if available
+      if (res.data.editWindow) {
+        setEditWindow(res.data.editWindow);
+      }
+      
+      setIsAttendanceClosed(res.data.isPastDeadline || !res.data.canMark);
+
+      if (!res.data.canMark) {
+        toast.error(`⏰ Attendance window is closed. Please mark before ${formattedDeadline}.`);
+      }
+    } catch (error) {
+      console.error('Error checking attendance status:', error);
+    }
+  }, []);
+
+  // ===== CHECK TODAY'S STATUS =====
+  const checkTodayStatus = useCallback(async () => {
+    if (!employeeId) return;
+
+    try {
+      const res = await api.get(`/attendance/today-status?employeeId=${employeeId}`);
+      setTodayStatus(res.data.data);
+    } catch (error) {
+      console.error('Error checking today status:', error);
+    }
+  }, [employeeId]);
+
+  // ===== ✅ FORCE REFRESH ON MOUNT =====
+  useEffect(() => {
+    const refreshAttendanceStatus = async () => {
+      try {
+        console.log('🔄 Force refresh - Fetching attendance status...');
+        const res = await api.get('/attendance/can-mark');
+        console.log('📢 Force refresh - Attendance API:', res.data);
+        
+        const deadlineTime = res.data.deadline || "17:00";
+        const formattedDeadline = deadlineTime.includes('PM') || deadlineTime.includes('AM') 
+          ? deadlineTime 
+          : formatDeadlineTime(deadlineTime);
+        
+        setCanMarkAttendance(res.data.canMark);
+        setAttendanceDeadline(formattedDeadline);
+        setIsAttendanceClosed(res.data.isPastDeadline || !res.data.canMark);
+        
+        console.log('📢 Updated Deadline:', formattedDeadline);
+      } catch (error) {
+        console.error('Force refresh error:', error);
+      }
+    };
+    
+    refreshAttendanceStatus();
+  }, []); // ✅ Runs once on mount
+
+  useEffect(() => {
+    if (employeeId) {
+      checkTodayStatus();
+    }
+    checkAttendanceStatus();
+  }, [employeeId, checkAttendanceStatus, checkTodayStatus]);
 
   // ===== FETCH SETTINGS =====
   useEffect(() => {
@@ -160,6 +268,7 @@ export default function Attenddance() {
     if (node) observerRef.current.observe(node);
   }, [loadingMore, hasMore, page, appliedFilters, fetchRequests]);
 
+  // ===== FILTERS =====
   const applyFilters = useCallback(() => {
     setIsFiltering(true);
     setRequests([]);
@@ -181,36 +290,8 @@ export default function Attenddance() {
     fetchRequests(1, false, emptyFilters);
   }, [fetchRequests]);
 
-  // ===== STOP TRACKING =====
-  const stopContinuousTracking = useCallback(() => {
-    if (watchIdRef.current) {
-      navigator.geolocation.clearWatch(watchIdRef.current);
-      watchIdRef.current = null;
-    }
-    setIsTrackingLocation(false);
-  }, []);
-
-  // ===== RESET FORM =====
-  const resetForm = useCallback(() => {
-    stopContinuousTracking();
-    setFormData({
-      name: employeeName || "", 
-      date: "", 
-      type: "Present", 
-      reason: "",
-      latitude: null, 
-      longitude: null, 
-      locationAddress: "", 
-      locationAccuracy: null
-    });
-    setLocationError(null);
-    setSubmittedRequestId(null);
-    setGpsRetryCount(0);
-    setShowForm(false);
-  }, [employeeName, stopContinuousTracking]);
-
-  // ===== HANDLE CAPTURE LOCATION WITH RETRY =====
-  const handleCaptureLocation = useCallback(async (isRetry = false) => {
+  // ===== LOCATION FUNCTIONS =====
+  const handleCaptureLocation = useCallback(async () => {
     if (!locationEnabled) {
       toast.error("Location is disabled by admin");
       return;
@@ -220,10 +301,8 @@ export default function Attenddance() {
     setLocationError(null);
 
     try {
-      // Use quick position first (cached or fast low-accuracy)
-      const position = await getCurrentPosition({ timeout: 12000 });
-      
-      // Show coordinates immediately
+      const position = await getCurrentPosition({ timeout: 5000 });
+
       const coordStr = `${position.latitude.toFixed(6)}, ${position.longitude.toFixed(6)}`;
       setFormData(prev => ({
         ...prev,
@@ -233,9 +312,6 @@ export default function Attenddance() {
         locationAccuracy: position.accuracy,
       }));
 
-      toast.success(`📍 Location captured!${position.highAccuracy ? '' : ' (Approximate)'}`);
-
-      // Get real address in background
       getAddressFromCoords(position.latitude, position.longitude, true)
         .then(addressData => {
           const specificAddress = addressData.specificAddress || addressData.locationName;
@@ -246,39 +322,28 @@ export default function Attenddance() {
             }));
           }
         })
-        .catch(() => {});
+        .catch(() => { });
 
-      // Reset retry count on success
-      setGpsRetryCount(0);
+      toast.success(`📍 Location captured!`);
 
-      // Start tracking after capture
       if (!isTrackingLocation) {
         startContinuousTracking();
       }
     } catch (error) {
       setLocationError(error.message);
-      setGpsRetryCount(prev => prev + 1);
-      
-      // Auto-retry once if first attempt failed
-      if (!isRetry && gpsRetryCount < 1) {
-        toast.error("GPS failed. Retrying with lower accuracy...");
-        setTimeout(() => handleCaptureLocation(true), 1000);
-      } else {
-        toast.error(error.message);
-      }
+      toast.error(error.message);
     } finally {
       setLocationLoading(false);
     }
-  }, [locationEnabled, isTrackingLocation, gpsRetryCount]);
+  }, [locationEnabled, isTrackingLocation]);
 
-  // ===== CONTINUOUS TRACKING =====
   const startContinuousTracking = useCallback(() => {
     if (!locationEnabled || !navigator.geolocation) return;
 
     setIsTrackingLocation(true);
     toast.loading("Starting location tracking...", { id: 'location-tracking', duration: 2000 });
 
-    const cleanup = watchLocation(
+    watchIdRef.current = watchLocation(
       async (newLocation) => {
         setFormData(prev => ({
           ...prev,
@@ -287,15 +352,13 @@ export default function Attenddance() {
           locationAccuracy: newLocation.accuracy,
         }));
 
-        // Get address in background
         getAddressFromCoords(newLocation.latitude, newLocation.longitude)
           .then(addressData => {
             const addr = addressData.specificAddress || addressData.locationName;
             setFormData(prev => ({ ...prev, locationAddress: addr }));
           })
-          .catch(() => {});
+          .catch(() => { });
 
-        // Background update to backend
         if (submittedRequestId) {
           updateAttendanceLocationBackground(
             submittedRequestId,
@@ -315,14 +378,78 @@ export default function Attenddance() {
         toast.error(error.message);
       }
     );
-
-    // Store cleanup function
-    watchIdRef.current = cleanup;
   }, [locationEnabled, submittedRequestId]);
+
+  const stopContinuousTracking = useCallback(() => {
+    if (watchIdRef.current) {
+      navigator.geolocation.clearWatch(watchIdRef.current);
+      watchIdRef.current = null;
+    }
+    setIsTrackingLocation(false);
+    toast.success("Location tracking stopped");
+  }, []);
+
+  // ============================================
+  // ✅ EDIT REQUEST FUNCTIONS
+  // ============================================
+  const openEditModal = async (request) => {
+    setEditingRequest(request);
+    setEditFormData({
+      name: request.name || '',
+      date: request.date ? new Date(request.date).toISOString().split('T')[0] : '',
+      type: request.type || 'Present',
+      reason: request.reason || '',
+    });
+
+    try {
+      const res = await api.get(`/attendance/${request._id}/can-edit?employeeId=${employeeId}`);
+      setEditInfo(res.data.data);
+      if (res.data.data.canEdit) {
+        setShowEditModal(true);
+      } else {
+        toast.error(`Edit window expired. You can only edit within ${editWindow} minutes.`);
+      }
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Failed to check edit status');
+    }
+  };
+
+  const handleEditSubmit = async (e) => {
+    e.preventDefault();
+    setEditing(true);
+
+    try {
+      const res = await api.put(`/attendance/${editingRequest._id}/edit`, {
+        ...editFormData,
+        employeeId: employeeId,
+      });
+
+      toast.success('Request updated successfully!');
+      setShowEditModal(false);
+      setEditingRequest(null);
+      setEditInfo(null);
+
+      fetchRequests(1, false, appliedFilters);
+    } catch (error) {
+      if (error.response?.data?.expired) {
+        toast.error(`Edit window expired. You can only edit within ${error.response.data.editWindow} minutes.`);
+      } else {
+        toast.error(error.response?.data?.message || 'Failed to update request');
+      }
+    } finally {
+      setEditing(false);
+    }
+  };
 
   // ===== HANDLE SUBMIT =====
   const handleSubmit = useCallback(async (e) => {
     e.preventDefault();
+
+    if (isAttendanceClosed || !canMarkAttendance) {
+      toast.error(`❌ Attendance cannot be marked after ${attendanceDeadline}. You will be marked as absent.`);
+      return;
+    }
+
     setSubmitting(true);
 
     try {
@@ -330,24 +457,22 @@ export default function Attenddance() {
 
       if (locationEnabled) {
         try {
-          // Try quick position with 8s timeout
-          const position = await getCurrentPosition({ timeout: 8000 });
-          
-          // Try to get address quickly (3s), else use coordinates
+          const position = await getCurrentPosition({ timeout: 5000 });
+
           const addressPromise = getAddressFromCoords(position.latitude, position.longitude);
-          const timeoutPromise = new Promise((_, reject) => 
+          const timeoutPromise = new Promise((_, reject) =>
             setTimeout(() => reject(new Error('timeout')), 3000)
           );
-          
+
           let addressData;
           try {
             addressData = await Promise.race([addressPromise, timeoutPromise]);
           } catch {
-            addressData = { 
-              locationName: `${position.latitude.toFixed(6)}, ${position.longitude.toFixed(6)}` 
+            addressData = {
+              locationName: `${position.latitude.toFixed(6)}, ${position.longitude.toFixed(6)}`
             };
           }
-          
+
           locationData = {
             latitude: position.latitude,
             longitude: position.longitude,
@@ -355,15 +480,9 @@ export default function Attenddance() {
             locationAccuracy: position.accuracy,
           };
         } catch (error) {
-          // If GPS fails on submit, show error but allow submission without location
-          if (formData.latitude && formData.longitude) {
-            // Use already captured location
-            toast("Using previously captured location", { icon: '⚠️' });
-          } else {
-            toast.error(error.message);
-            setSubmitting(false);
-            return;
-          }
+          toast.error(error.message);
+          setSubmitting(false);
+          return;
         }
       }
 
@@ -375,31 +494,47 @@ export default function Attenddance() {
 
       const response = await api.post("/attendance/create", requestData, { timeout: 15000 });
       const createdId = response.data?.data?._id || response.data?._id;
-      
+
       if (createdId) {
         setSubmittedRequestId(createdId);
         if (!isTrackingLocation) startContinuousTracking();
       }
 
       toast.success("Attendance request submitted successfully!");
-      resetForm();
       setRequests([]);
       setPage(1);
       setHasMore(true);
       fetchRequests(1, false, appliedFilters);
-      
+      checkTodayStatus();
+
     } catch (error) {
       console.error("Submit Error:", error);
-      toast.error(error.response?.data?.message || "Failed to submit request");
+
+      if (error.response?.data?.code === 'ATTENDANCE_CLOSED') {
+        toast.error(`❌ Attendance cannot be marked after ${attendanceDeadline}. You will be marked as absent.`);
+      } else {
+        toast.error(error.response?.data?.message || "Failed to submit request");
+      }
     } finally {
       setSubmitting(false);
     }
-  }, [formData, locationEnabled, employeeId, isTrackingLocation, appliedFilters, fetchRequests, startContinuousTracking, resetForm]);
+  }, [formData, locationEnabled, employeeId, isTrackingLocation, appliedFilters, fetchRequests, startContinuousTracking, canMarkAttendance, isAttendanceClosed, checkTodayStatus, attendanceDeadline]);
+
+  const resetForm = useCallback(() => {
+    stopContinuousTracking();
+    setFormData({
+      name: employeeName || "", date: "", type: "Present", reason: "",
+      latitude: null, longitude: null, locationAddress: "", locationAccuracy: null
+    });
+    setLocationError(null);
+    setSubmittedRequestId(null);
+    setShowForm(false);
+  }, [employeeName, stopContinuousTracking]);
 
   // Cleanup
   useEffect(() => {
     return () => {
-      if (watchIdRef.current) watchIdRef.current();
+      if (watchIdRef.current) navigator.geolocation.clearWatch(watchIdRef.current);
       if (observerRef.current) observerRef.current.disconnect();
     };
   }, []);
@@ -408,7 +543,8 @@ export default function Attenddance() {
   const getStatusBadge = useMemo(() => (status) => {
     const map = {
       'approved': { color: 'bg-emerald-50 text-emerald-600 border-emerald-200', icon: <CheckCircle2 className="w-3 h-3" />, label: 'Approved' },
-      'rejected': { color: 'bg-red-50 text-red-600 border-red-200', icon: <Ban className="w-3 h-3" />, label: 'Rejected' }
+      'rejected': { color: 'bg-red-50 text-red-600 border-red-200', icon: <Ban className="w-3 h-3" />, label: 'Rejected' },
+      'absent': { color: 'bg-red-50 text-red-600 border-red-200', icon: <AlertCircle className="w-3 h-3" />, label: 'Absent' }
     };
     return map[status?.toLowerCase()] || { color: 'bg-amber-50 text-amber-600 border-amber-200', icon: <Clock className="w-3 h-3" />, label: 'Pending' };
   }, []);
@@ -464,7 +600,17 @@ export default function Attenddance() {
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 flex-wrap">
+            {/* ✅ Dynamic Deadline Display */}
+            <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full border text-xs ${
+              canMarkAttendance
+                ? "bg-emerald-50 text-emerald-600 border-emerald-200"
+                : "bg-red-50 text-red-600 border-red-200"
+            }`}>
+              <Clock className={`w-3 h-3 ${canMarkAttendance ? "text-emerald-500" : "text-red-500"}`} />
+              {canMarkAttendance ? `Open until ${attendanceDeadline}` : `Closed after ${attendanceDeadline}`}
+            </div>
+
             <div className={`hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full border text-xs ${
               locationEnabled ? "bg-emerald-50 text-emerald-600 border-emerald-200" : "bg-red-50 text-red-600 border-red-200"
             }`}>
@@ -472,21 +618,60 @@ export default function Attenddance() {
               {locationEnabled ? "Location ON" : "Location OFF"}
             </div>
 
-            <button onClick={() => navigate('/layout/attendance-history')}
-              className="hidden sm:inline-flex items-center gap-2 text-xs font-medium text-[#8a7a6a] hover:text-[#2c1810] hover:bg-[#f5f0eb] px-3 py-2 rounded-lg transition border border-[#e5ddd5]">
-              <History className="w-4 h-4" /> History
+            {/* HISTORY BUTTON */}
+            <button
+              onClick={() => navigate('/layout/employeesAttanddance-history')}
+              className="inline-flex items-center gap-2 text-xs font-medium text-[#8a7a6a] hover:text-[#2c1810] hover:bg-[#f5f0eb] px-3 py-2 rounded-lg transition border border-[#e5ddd5]"
+            >
+              <History className="w-4 h-4" />
+              <span className="hidden sm:inline">History</span>
             </button>
 
-            <button onClick={() => setShowForm(!showForm)}
+            <button onClick={() => {
+              if (!canMarkAttendance) {
+                toast.error(`❌ Cannot create request after ${attendanceDeadline}`);
+                return;
+              }
+              setShowForm(!showForm);
+            }}
               className={`inline-flex items-center justify-center gap-2 text-xs font-semibold px-4 py-2.5 rounded-xl transition-all active:scale-95 ${
-                showForm ? "bg-[#e5ddd5] text-[#8a7a6a] hover:bg-[#d4c8bc]" 
-                        : "bg-[#2c1810] hover:bg-[#2c1810]/80 text-white shadow-lg shadow-[#2c1810]/20"
-              }`}>
+                showForm ? "bg-[#e5ddd5] text-[#8a7a6a] hover:bg-[#d4c8bc]"
+                  : canMarkAttendance
+                    ? "bg-[#2c1810] hover:bg-[#2c1810]/80 text-white shadow-lg shadow-[#2c1810]/20"
+                    : "bg-[#e5ddd5] text-[#8a7a6a] cursor-not-allowed"
+              }`}
+              disabled={!canMarkAttendance}
+            >
               {showForm ? <X className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
               <span>{showForm ? "Close Form" : "Create Request"}</span>
             </button>
           </div>
         </div>
+
+        {/* ✅ ATTENDANCE STATUS BANNER - DYNAMIC DEADLINE */}
+        {!canMarkAttendance && (
+          <div className="bg-red-50 border border-red-200 rounded-xl p-4 flex items-start gap-3">
+            <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="text-sm font-medium text-red-600">⏰ Attendance Window Closed</p>
+              <p className="text-xs text-red-500 mt-1">
+                You cannot mark attendance after {attendanceDeadline}. Employees who haven't marked attendance will be automatically marked as absent.
+              </p>
+            </div>
+          </div>
+        )}
+
+        {canMarkAttendance && (
+          <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 flex items-start gap-3">
+            <CheckCircle2 className="w-5 h-5 text-emerald-600 flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="text-sm font-medium text-emerald-600">✅ Attendance Window Open</p>
+              <p className="text-xs text-emerald-500 mt-1">
+                You can mark attendance until {attendanceDeadline}. Current time: {new Date().toLocaleTimeString()}
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* STATS */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -536,6 +721,7 @@ export default function Attenddance() {
                     <option value="Pending">Pending</option>
                     <option value="Approved">Approved</option>
                     <option value="Rejected">Rejected</option>
+                    <option value="Absent">Absent</option>
                   </select>
                 </div>
                 <div>
@@ -570,13 +756,15 @@ export default function Attenddance() {
           )}
         </div>
 
+        {/* ============================================ */}
         {/* FORM MODAL */}
+        {/* ============================================ */}
         {showForm && (
           <>
             <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-40" onClick={resetForm} />
             <div className="fixed inset-0 flex items-center justify-center z-50 p-3 sm:p-4 overflow-y-auto">
               <div className="bg-[#faf7f3] border border-[#e5ddd5] rounded-2xl p-4 sm:p-6 w-full max-w-lg max-h-[95vh] overflow-y-auto shadow-xl animate-fade-in custom-scrollbar">
-                
+
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="text-sm font-bold text-[#2c1810] uppercase tracking-wider flex items-center gap-2">
                     <FileText className="w-4 h-4 text-[#2c1810]" /> New Request
@@ -592,6 +780,15 @@ export default function Attenddance() {
                     </button>
                   </div>
                 </div>
+
+                {!canMarkAttendance && (
+                  <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4 flex items-start gap-2">
+                    <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0 mt-0.5" />
+                    <p className="text-xs text-red-600">
+                      ⏰ Attendance window is closed after {attendanceDeadline}. You cannot submit a new request.
+                    </p>
+                  </div>
+                )}
 
                 <form onSubmit={handleSubmit} className="space-y-4">
                   <div className="space-y-1.5">
@@ -657,36 +854,20 @@ export default function Attenddance() {
                               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span> Tracking
                             </span>
                           )}
-                          <button type="button" onClick={() => handleCaptureLocation(false)} disabled={locationLoading}
+                          <button type="button" onClick={handleCaptureLocation} disabled={locationLoading || !canMarkAttendance}
                             className="text-xs bg-[#2c1810] hover:bg-[#2c1810]/80 text-white px-3 py-1.5 rounded-lg transition-all active:scale-95 disabled:opacity-50 flex items-center gap-1">
-                            {locationLoading ? <Loader2 className="w-3 h-3 animate-spin" /> 
-                              : formData.latitude ? <Check className="w-3 h-3" /> 
-                              : <Globe className="w-3 h-3" />}
+                            {locationLoading ? <Loader2 className="w-3 h-3 animate-spin" />
+                              : formData.latitude ? <Check className="w-3 h-3" />
+                                : <Globe className="w-3 h-3" />}
                             {formData.latitude ? "Update" : "Capture Location"}
                           </button>
                         </div>
                       </div>
 
                       {locationError && (
-                        <div className="bg-red-50 border border-red-200 rounded-lg p-3 space-y-2">
-                          <div className="flex items-start gap-2">
-                            <AlertTriangle className="w-4 h-4 text-red-600 flex-shrink-0 mt-0.5" />
-                            <div className="flex-1">
-                              <p className="text-xs font-medium text-red-600">Location Error</p>
-                              <p className="text-xs text-red-600">{locationError}</p>
-                            </div>
-                          </div>
-                          {/* 🔥 RETRY BUTTON 🔥 */}
-                          <button 
-                            type="button" 
-                            onClick={() => handleCaptureLocation(false)}
-                            className="w-full text-xs bg-red-100 hover:bg-red-200 text-red-700 px-3 py-2 rounded-lg transition flex items-center justify-center gap-2"
-                          >
-                            <RefreshCw className="w-3 h-3" /> Try Again
-                          </button>
-                          <p className="text-[10px] text-red-500 text-center">
-                            💡 Tip: Make sure GPS is ON and you're in an open area
-                          </p>
+                        <div className="bg-red-50 border border-red-200 rounded-lg p-2 flex items-start gap-2">
+                          <AlertTriangle className="w-3 h-3 text-red-600 flex-shrink-0 mt-0.5" />
+                          <p className="text-xs text-red-600">{locationError}</p>
                         </div>
                       )}
 
@@ -727,9 +908,6 @@ export default function Attenddance() {
                             <p className="text-xs text-amber-700 mt-0.5">
                               Click <span className="font-semibold">"Capture Location"</span> to get GPS
                             </p>
-                            <p className="text-[10px] text-amber-600 mt-1">
-                              💡 Enable GPS and WiFi for better accuracy
-                            </p>
                           </div>
                         </div>
                       )}
@@ -748,14 +926,140 @@ export default function Attenddance() {
                   <div className="flex flex-col sm:flex-row justify-end pt-2 gap-3">
                     <button type="button" onClick={resetForm}
                       className="px-4 py-2.5 rounded-xl bg-[#f5f0eb] hover:bg-[#e5ddd5] text-[#8a7a6a] hover:text-[#2c1810] text-xs font-medium transition border border-[#e5ddd5] order-2 sm:order-1">Cancel</button>
-                    <button type="submit" disabled={submitting || (locationEnabled && !formData.latitude) || (isReasonRequired() && !formData.reason.trim())}
-                      className={`px-5 py-2.5 rounded-xl text-xs font-semibold transition-all active:scale-95 flex items-center justify-center gap-2 order-1 sm:order-2 ${
-                        submitting || (locationEnabled && !formData.latitude) || (isReasonRequired() && !formData.reason.trim())
+                    <button type="submit" disabled={submitting || !canMarkAttendance || (locationEnabled && !formData.latitude) || (isReasonRequired() && !formData.reason.trim())}
+                      className={`px-5 py-2.5 rounded-xl text-xs font-semibold transition-all active:scale-95 flex items-center justify-center gap-2 order-1 sm:order-2 ${submitting || !canMarkAttendance || (locationEnabled && !formData.latitude) || (isReasonRequired() && !formData.reason.trim())
                           ? "bg-[#e5ddd5] text-[#8a7a6a] cursor-not-allowed"
                           : "bg-[#2c1810] hover:bg-[#2c1810]/80 text-white shadow-lg shadow-[#2c1810]/20"
-                      }`}>
+                        }`}>
                       {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
-                      {submitting ? "Submitting..." : "Submit Request"}
+                      {submitting ? "Submitting..." : !canMarkAttendance ? "Closed" : "Submit Request"}
+                    </button>
+                  </div>
+                </form>
+
+                {submittedRequestId && (
+                  <div className="mt-4 pt-4 border-t border-[#e5ddd5]">
+                    <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-3">
+                      <div className="flex items-center gap-2 mb-2">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                        <span className="text-sm font-medium text-emerald-800">Request Submitted!</span>
+                      </div>
+                      <p className="text-xs text-emerald-700">Location tracking is active. Updates saved in background.</p>
+                      {formData.latitude && (
+                        <div className="mt-2 p-2 bg-white rounded-lg border border-emerald-200">
+                          <p className="text-xs font-medium text-emerald-800 break-words">{formData.locationAddress}</p>
+                          <p className="text-[10px] text-emerald-600 mt-0.5">📍 {formData.latitude.toFixed(6)}, {formData.longitude.toFixed(6)}</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </>
+        )}
+
+        {/* ============================================ */}
+        {/* EDIT MODAL */}
+        {/* ============================================ */}
+        {showEditModal && editingRequest && (
+          <>
+            <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-40" onClick={() => setShowEditModal(false)} />
+            <div className="fixed inset-0 flex items-center justify-center z-50 p-3 sm:p-4 overflow-y-auto">
+              <div className="bg-[#faf7f3] border border-[#e5ddd5] rounded-2xl p-4 sm:p-6 w-full max-w-lg max-h-[95vh] overflow-y-auto shadow-xl animate-fade-in custom-scrollbar">
+
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold text-[#2c1810] flex items-center gap-2">
+                    <Edit2 className="w-5 h-5 text-[#2c1810]" />
+                    Edit Attendance Request
+                  </h3>
+                  <button type="button" onClick={() => setShowEditModal(false)} className="p-1.5 text-[#8a7a6a] hover:text-[#2c1810] hover:bg-[#f5f0eb] rounded-lg transition">
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+
+                {/* Edit Window Info */}
+                {editInfo && (
+                  <div className={`p-3 rounded-lg mb-4 ${editInfo.canEdit ? 'bg-emerald-50 border border-emerald-200' : 'bg-red-50 border border-red-200'}`}>
+                    <div className="flex items-center gap-2">
+                      <Clock className={`w-4 h-4 ${editInfo.canEdit ? 'text-emerald-600' : 'text-red-600'}`} />
+                      <span className={`text-sm font-medium ${editInfo.canEdit ? 'text-emerald-600' : 'text-red-600'}`}>
+                        {editInfo.canEdit
+                          ? `⏰ ${editInfo.remainingMinutes} minutes remaining to edit`
+                          : '🔒 Edit window expired'}
+                      </span>
+                    </div>
+                    <p className="text-xs text-[#8a7a6a] mt-1">
+                      Submitted: {new Date(editInfo.createdAt).toLocaleTimeString()}
+                      {!editInfo.canEdit && ` • ${editInfo.timeElapsed} minutes ago`}
+                    </p>
+                  </div>
+                )}
+
+                <form onSubmit={handleEditSubmit} className="space-y-4">
+                  <div>
+                    <label className="text-xs font-semibold text-[#8a7a6a]">Name</label>
+                    <input
+                      type="text"
+                      value={editFormData.name}
+                      onChange={(e) => setEditFormData({ ...editFormData, name: e.target.value })}
+                      className="w-full bg-[#f5f0eb] border border-[#e5ddd5] focus:border-[#2c1810] focus:ring-1 focus:ring-[#2c1810] text-[#2c1810] rounded-lg px-3 py-2 text-sm outline-none transition-colors"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-semibold text-[#8a7a6a]">Date</label>
+                    <input
+                      type="date"
+                      value={editFormData.date}
+                      onChange={(e) => setEditFormData({ ...editFormData, date: e.target.value })}
+                      className="w-full bg-[#f5f0eb] border border-[#e5ddd5] focus:border-[#2c1810] focus:ring-1 focus:ring-[#2c1810] text-[#2c1810] rounded-lg px-3 py-2 text-sm outline-none transition-colors"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-semibold text-[#8a7a6a]">Type</label>
+                    <select
+                      value={editFormData.type}
+                      onChange={(e) => setEditFormData({ ...editFormData, type: e.target.value })}
+                      className="w-full bg-[#f5f0eb] border border-[#e5ddd5] focus:border-[#2c1810] focus:ring-1 focus:ring-[#2c1810] text-[#2c1810] rounded-lg px-3 py-2 text-sm outline-none transition-colors"
+                    >
+                      <option value="Present">Present</option>
+                      <option value="Leave">Leave</option>
+                      <option value="Half Day">Half Day</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-semibold text-[#8a7a6a]">Reason</label>
+                    <textarea
+                      value={editFormData.reason}
+                      onChange={(e) => setEditFormData({ ...editFormData, reason: e.target.value })}
+                      rows="3"
+                      className="w-full bg-[#f5f0eb] border border-[#e5ddd5] focus:border-[#2c1810] focus:ring-1 focus:ring-[#2c1810] text-[#2c1810] rounded-lg px-3 py-2 text-sm resize-none outline-none transition-colors"
+                      placeholder="Enter reason..."
+                    />
+                  </div>
+
+                  <div className="flex gap-3 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => setShowEditModal(false)}
+                      className="flex-1 px-4 py-2 bg-[#f5f0eb] hover:bg-[#e5ddd5] text-[#8a7a6a] hover:text-[#2c1810] rounded-lg text-sm font-medium transition border border-[#e5ddd5]"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={editing || !editInfo?.canEdit}
+                      className={`flex-1 px-4 py-2 rounded-lg text-sm font-medium text-white transition ${editing || !editInfo?.canEdit
+                          ? 'bg-[#e5ddd5] text-[#8a7a6a] cursor-not-allowed'
+                          : 'bg-[#2c1810] hover:bg-[#2c1810]/80'
+                        }`}
+                    >
+                      {editing ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : 'Save Changes'}
                     </button>
                   </div>
                 </form>
@@ -801,6 +1105,7 @@ export default function Attenddance() {
               const typeBadge = getTypeBadge(req.type);
               const isExpanded = expandedId === req._id;
               const isLast = index === requests.length - 1;
+              const canEdit = req.status === "Pending" && new Date() - new Date(req.createdAt) < (editWindow * 60 * 1000);
 
               return (
                 <div key={req._id} ref={isLast ? lastElementRef : null}
@@ -859,7 +1164,43 @@ export default function Attenddance() {
                         <span className="flex items-center gap-1"><Calendar className="w-3 h-3" /> Submitted: {formatDateTime(req.createdAt)}</span>
                         {req.locationCaptured && <span className="flex items-center gap-1 text-emerald-600"><MapPin className="w-3 h-3" /> Location Verified</span>}
                         {req.processedAt && <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> Processed: {formatDateTime(req.processedAt)}</span>}
+                        {req.status === "Absent" && (
+                          <span className="flex items-center gap-1 text-red-600">
+                            <AlertCircle className="w-3 h-3" /> Auto-marked absent
+                          </span>
+                        )}
+                        {req.editHistory && req.editHistory.length > 0 && (
+                          <span className="flex items-center gap-1 text-[#2c1810]">
+                            <Edit2 className="w-3 h-3" /> Edited {req.editHistory.length} time{req.editHistory.length > 1 ? 's' : ''}
+                          </span>
+                        )}
                       </div>
+
+                      {/* ✅ Edit Button - Show if pending and within dynamic window */}
+                      {req.status === "Pending" && (
+                        <div className="flex items-center gap-2 pt-2 border-t border-[#e5ddd5]/50">
+                          {canEdit ? (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                openEditModal(req);
+                              }}
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#2c1810]/10 hover:bg-[#2c1810]/20 text-[#2c1810] rounded-lg text-xs font-medium transition border border-[#2c1810]/20"
+                            >
+                              <Edit2 className="w-3.5 h-3.5" />
+                              Edit Request
+                              <span className="text-[10px] opacity-70">
+                                ({(editWindow) - Math.floor((new Date() - new Date(req.createdAt)) / (1000 * 60))}m left)
+                              </span>
+                            </button>
+                          ) : (
+                            <span className="text-xs text-[#8a7a6a] flex items-center gap-1">
+                              <Clock className="w-3 h-3" />
+                              Edit window expired ({editWindow} min limit)
+                            </span>
+                          )}
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>

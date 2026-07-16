@@ -1,9 +1,257 @@
+// Backend/src/Controllers/attendance.controller.js
 import Attendance from "../models/Attendance.js";
 import User from "../models/Users.js";
-import { getSettingValue } from "./setting.controller.js";
+import { 
+  getSettingValue, 
+  getAttendanceDeadline, 
+  isAttendanceAllowed,
+  getRemainingAttendanceTime 
+} from "./setting.controller.js";
 
 // ============================================
-// ✅ CREATE ATTENDANCE REQUEST
+// ✅ HELPER: Format Deadline Time
+// ============================================
+const formatDeadlineTime = (time) => {
+  try {
+    if (!time) return '5:00 PM';
+    const [hours, minutes] = time.split(':').map(Number);
+    if (isNaN(hours) || isNaN(minutes)) return '5:00 PM';
+    const ampm = hours >= 12 ? 'PM' : 'AM';
+    const hour12 = hours % 12 || 12;
+    return `${hour12}:${String(minutes).padStart(2, '0')} ${ampm}`;
+  } catch (error) {
+    console.error('Format deadline error:', error);
+    return '5:00 PM';
+  }
+};
+
+// ============================================
+// IS WITHIN ATTENDANCE WINDOW
+// ============================================
+export const isWithinAttendanceWindow = async (requestTime) => {
+  try {
+    const timeWindow = await getSettingValue('attendanceTimeWindow', 15);
+    const now = new Date();
+    const requestDate = new Date(requestTime);
+    const diffMinutes = (now - requestDate) / (1000 * 60);
+    return diffMinutes <= timeWindow;
+  } catch (error) {
+    console.error('Time window check error:', error);
+    return true;
+  }
+};
+
+// ============================================
+// CREATE ATTENDANCE WITH VALIDATION
+// ============================================
+export const createAttendanceWithValidation = async (req, res) => {
+  try {
+    const { employeeId, date, time, name, type, reason, latitude, longitude, locationAddress } = req.body;
+    
+    const existing = await Attendance.findOne({ employeeId, date: new Date(date) });
+    if (existing) {
+      return res.status(400).json({
+        success: false,
+        message: 'Attendance already marked for this date',
+      });
+    }
+    
+    const isValidTime = await isWithinAttendanceWindow(time || new Date());
+    if (!isValidTime) {
+      const timeWindow = await getSettingValue('attendanceTimeWindow', 15);
+      return res.status(400).json({
+        success: false,
+        message: `Attendance must be marked within ${timeWindow} minutes of scheduled time`,
+      });
+    }
+    
+    const attendance = await Attendance.create({
+      name: name || 'Unknown',
+      employeeId,
+      date: new Date(date),
+      type: type || 'Present',
+      reason: reason || '',
+      latitude: latitude || null,
+      longitude: longitude || null,
+      locationAddress: locationAddress || '',
+      status: 'Pending',
+      editHistory: [],
+    });
+    
+    res.status(201).json({
+      success: true,
+      message: 'Attendance marked successfully',
+      data: attendance,
+    });
+  } catch (error) {
+    console.error('Attendance creation error:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+// ============================================
+// ✅ CAN MARK ATTENDANCE (Dynamic Deadline) - FIXED
+// ============================================
+export const canMarkAttendance = async (req, res) => {
+  try {
+    // ✅ Get deadline from database
+    const deadline = await getAttendanceDeadline(); // Returns "13:00"
+    const isAllowed = await isAttendanceAllowed();
+    const remaining = await getRemainingAttendanceTime();
+    
+    // ✅ Format deadline for display (convert "13:00" to "1:00 PM")
+    const formattedDeadline = formatDeadlineTime(deadline);
+    
+    res.json({
+      success: true,
+      canMark: isAllowed,
+      message: isAllowed 
+        ? `You can mark attendance until ${formattedDeadline}` 
+        : `Attendance window is closed (after ${formattedDeadline})`,
+      currentTime: new Date().toISOString(),
+      deadline: formattedDeadline, // ✅ Return formatted deadline
+      rawDeadline: deadline, // ✅ Return raw deadline for debugging
+      remainingTime: remaining,
+      isPastDeadline: !isAllowed,
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// ============================================
+// GET TODAY'S STATUS (with dynamic deadline)
+// ============================================
+export const getTodayStatus = async (req, res) => {
+  try {
+    const { employeeId } = req.query;
+    
+    if (!employeeId) {
+      return res.status(400).json({ success: false, message: 'employeeId is required' });
+    }
+    
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    
+    const attendance = await Attendance.findOne({
+      employeeId,
+      date: { $gte: today, $lt: tomorrow }
+    });
+    
+    const isAllowed = await isAttendanceAllowed();
+    const deadline = await getAttendanceDeadline();
+    const formattedDeadline = formatDeadlineTime(deadline);
+    const remaining = await getRemainingAttendanceTime();
+    
+    res.json({
+      success: true,
+      data: {
+        hasMarked: !!attendance,
+        status: attendance?.status || 'Not Marked',
+        type: attendance?.type || null,
+        isAfterDeadline: !isAllowed,
+        canMark: isAllowed && !attendance,
+        deadline: formattedDeadline,
+        remainingTime: remaining,
+        currentTime: new Date().toISOString(),
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// ============================================
+// CHECK IF EMPLOYEE CAN EDIT REQUEST
+// ============================================
+export const canEditRequest = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { employeeId } = req.query;
+    
+    const attendance = await Attendance.findById(id);
+    if (!attendance) {
+      return res.status(404).json({
+        success: false,
+        message: "Attendance record not found"
+      });
+    }
+    
+    if (attendance.employeeId.toString() !== employeeId) {
+      return res.status(403).json({
+        success: false,
+        message: "You are not authorized to edit this request"
+      });
+    }
+    
+    if (attendance.status !== "Pending") {
+      return res.status(400).json({
+        success: false,
+        message: "Request is already approved or rejected, cannot edit"
+      });
+    }
+    
+    const createdAt = new Date(attendance.createdAt);
+    const now = new Date();
+    const diffMinutes = (now - createdAt) / (1000 * 60);
+    const editWindow = await getSettingValue('attendanceEditWindow', 15);
+    
+    const canEdit = diffMinutes <= editWindow;
+    
+    res.json({
+      success: true,
+      data: {
+        canEdit,
+        remainingMinutes: canEdit ? Math.ceil(editWindow - diffMinutes) : 0,
+        timeElapsed: Math.floor(diffMinutes),
+        editWindow: editWindow,
+        expired: !canEdit,
+        createdAt: attendance.createdAt,
+        currentTime: now,
+      }
+    });
+  } catch (error) {
+    console.error("Can Edit Request Error:", error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// ============================================
+// GET EDIT HISTORY
+// ============================================
+export const getEditHistory = async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const attendance = await Attendance.findById(id);
+    if (!attendance) {
+      return res.status(404).json({
+        success: false,
+        message: "Attendance record not found"
+      });
+    }
+    
+    res.json({
+      success: true,
+      data: {
+        editHistory: attendance.editHistory || [],
+        totalEdits: attendance.editHistory?.length || 0,
+        canEdit: attendance.status === "Pending",
+      }
+    });
+  } catch (error) {
+    console.error("Get Edit History Error:", error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// ============================================
+// CREATE ATTENDANCE REQUEST
 // ============================================
 export const createAttendanceRequest = async (req, res) => {
   try {
@@ -18,7 +266,6 @@ export const createAttendanceRequest = async (req, res) => {
       locationAddress,
     } = req.body;
 
-    // Check if already marked for today
     const existing = await Attendance.findOne({
       employeeId,
       date: new Date(date),
@@ -27,6 +274,19 @@ export const createAttendanceRequest = async (req, res) => {
     if (existing) {
       return res.status(400).json({
         message: "Attendance already marked for this date",
+      });
+    }
+
+    // ✅ Check if attendance is allowed (dynamic deadline)
+    const isAllowed = await isAttendanceAllowed();
+    if (!isAllowed) {
+      const deadline = await getAttendanceDeadline();
+      const formattedDeadline = formatDeadlineTime(deadline);
+      return res.status(400).json({
+        success: false,
+        message: `Attendance cannot be marked after ${formattedDeadline}. You will be marked as absent.`,
+        code: 'ATTENDANCE_CLOSED',
+        deadline: formattedDeadline,
       });
     }
 
@@ -40,12 +300,22 @@ export const createAttendanceRequest = async (req, res) => {
       longitude: longitude || null,
       locationAddress: locationAddress || "",
       status: "Pending",
+      editHistory: [],
     });
+
+    const editWindow = await getSettingValue('attendanceEditWindow', 15);
+    const deadline = await getAttendanceDeadline();
+    const formattedDeadline = formatDeadlineTime(deadline);
+    const remaining = await getRemainingAttendanceTime();
 
     res.status(201).json({
       success: true,
       message: "Attendance request submitted successfully",
       data: attendance,
+      editWindow: editWindow,
+      editWindowMessage: `You can edit this request within ${editWindow} minutes`,
+      deadline: formattedDeadline,
+      remainingTime: remaining,
     });
   } catch (error) {
     console.error("Create Attendance Error:", error);
@@ -54,7 +324,88 @@ export const createAttendanceRequest = async (req, res) => {
 };
 
 // ============================================
-// ✅ GET PENDING REQUESTS
+// EDIT ATTENDANCE REQUEST (with dynamic window)
+// ============================================
+export const editAttendanceRequest = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, date, type, reason, locationAddress, employeeId } = req.body;
+
+    const attendance = await Attendance.findById(id);
+    if (!attendance) {
+      return res.status(404).json({
+        success: false,
+        message: "Attendance record not found"
+      });
+    }
+
+    if (attendance.employeeId.toString() !== employeeId) {
+      return res.status(403).json({
+        success: false,
+        message: "You are not authorized to edit this request"
+      });
+    }
+
+    if (attendance.status !== "Pending") {
+      return res.status(400).json({
+        success: false,
+        message: "Request is already approved or rejected, cannot edit"
+      });
+    }
+
+    const createdAt = new Date(attendance.createdAt);
+    const now = new Date();
+    const diffMinutes = (now - createdAt) / (1000 * 60);
+    const editWindow = await getSettingValue('attendanceEditWindow', 15);
+
+    if (diffMinutes > editWindow) {
+      return res.status(400).json({
+        success: false,
+        message: `Edit window expired. You can only edit within ${editWindow} minutes of submission.`,
+        timeElapsed: Math.floor(diffMinutes),
+        editWindow: editWindow,
+        expired: true,
+      });
+    }
+
+    if (name) attendance.name = name;
+    if (date) attendance.date = new Date(date);
+    if (type) attendance.type = type;
+    if (reason !== undefined) attendance.reason = reason;
+    if (locationAddress !== undefined) attendance.locationAddress = locationAddress;
+    
+    attendance.editHistory = attendance.editHistory || [];
+    attendance.editHistory.push({
+      editedAt: new Date(),
+      previousValues: {
+        name: attendance.name,
+        date: attendance.date,
+        type: attendance.type,
+        reason: attendance.reason,
+        locationAddress: attendance.locationAddress,
+      },
+      editedBy: employeeId,
+    });
+
+    await attendance.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Attendance record updated successfully",
+      data: attendance,
+      editWindowRemaining: Math.ceil(editWindow - diffMinutes),
+    });
+  } catch (error) {
+    console.error("Edit Attendance Request Error:", error);
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+};
+
+// ============================================
+// GET PENDING REQUESTS
 // ============================================
 export const getPendingRequests = async (req, res) => {
   try {
@@ -94,7 +445,7 @@ export const getPendingRequests = async (req, res) => {
 };
 
 // ============================================
-// ✅ GET ALL REQUESTS (Admin)
+// GET ALL REQUESTS
 // ============================================
 export const getAllRequests = async (req, res) => {
   try {
@@ -141,7 +492,7 @@ export const getAllRequests = async (req, res) => {
 };
 
 // ============================================
-// ✅ GET EMPLOYEE REQUESTS
+// GET EMPLOYEE REQUESTS
 // ============================================
 export const getEmployeeRequests = async (req, res) => {
   try {
@@ -187,7 +538,7 @@ export const getEmployeeRequests = async (req, res) => {
 };
 
 // ============================================
-// ✅ HANDLE ATTENDANCE ACTION (Approve/Reject)
+// HANDLE ATTENDANCE ACTION (Approve/Reject)
 // ============================================
 export const handleAttendanceAction = async (req, res) => {
   try {
@@ -210,29 +561,6 @@ export const handleAttendanceAction = async (req, res) => {
 
     await attendance.save();
 
-    // Send email notification
-    try {
-      const emailNotifications = await getSettingValue("emailNotifications", true);
-      
-      if (emailNotifications && attendance.email) {
-        const emailData = getAttendanceApprovalEmail(
-          attendance,
-          status,
-          req.user || { name: 'Admin' }
-        );
-        
-        await sendEmail({
-          to: attendance.email,
-          subject: emailData.subject,
-          html: emailData.html,
-        });
-        
-        console.log(`✅ Attendance status email sent to ${attendance.email}`);
-      }
-    } catch (emailError) {
-      console.error("❌ Failed to send attendance email:", emailError.message);
-    }
-
     res.status(200).json({
       success: true,
       message: `Attendance ${status} successfully`,
@@ -245,7 +573,7 @@ export const handleAttendanceAction = async (req, res) => {
 };
 
 // ============================================
-// ✅ DELETE REQUEST
+// DELETE REQUEST
 // ============================================
 export const deleteRequest = async (req, res) => {
   try {
@@ -267,39 +595,7 @@ export const deleteRequest = async (req, res) => {
 };
 
 // ============================================
-// ✅ EDIT ATTENDANCE REQUEST
-// ============================================
-export const editAttendanceRequest = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { name, date, type, reason, locationAddress } = req.body;
-
-    const attendance = await Attendance.findById(id);
-    if (!attendance) {
-      return res.status(404).json({ message: "Attendance record not found" });
-    }
-
-    if (name) attendance.name = name;
-    if (date) attendance.date = new Date(date);
-    if (type) attendance.type = type;
-    if (reason !== undefined) attendance.reason = reason;
-    if (locationAddress !== undefined) attendance.locationAddress = locationAddress;
-
-    await attendance.save();
-
-    res.status(200).json({
-      success: true,
-      message: "Attendance record updated successfully",
-      data: attendance,
-    });
-  } catch (error) {
-    console.error("Edit Attendance Request Error:", error);
-    res.status(500).json({ message: error.message });
-  }
-};
-
-// ============================================
-// ✅ GET ATTENDANCE BY DATE RANGE
+// GET ATTENDANCE BY DATE RANGE
 // ============================================
 export const getAttendanceByDateRange = async (req, res) => {
   try {
@@ -334,7 +630,7 @@ export const getAttendanceByDateRange = async (req, res) => {
 };
 
 // ============================================
-// ✅ GET ATTENDANCE STATS
+// GET ATTENDANCE STATS
 // ============================================
 export const getAttendanceStats = async (req, res) => {
   try {
@@ -356,7 +652,6 @@ export const getAttendanceStats = async (req, res) => {
       Attendance.countDocuments({ ...query, status: "Pending" }),
     ]);
 
-    // Get present/leave/half day counts
     const present = await Attendance.countDocuments({ ...query, type: "Present" });
     const leave = await Attendance.countDocuments({ ...query, type: "Leave" });
     const halfDay = await Attendance.countDocuments({ ...query, type: "Half Day" });
@@ -376,5 +671,110 @@ export const getAttendanceStats = async (req, res) => {
   } catch (error) {
     console.error("Get Attendance Stats Error:", error);
     res.status(500).json({ message: error.message });
+  }
+};
+
+// ============================================
+// AUTO MARK ABSENT (with dynamic deadline)
+// ============================================
+export const autoMarkAbsent = async () => {
+  try {
+    const isAutoMarkEnabled = await getSettingValue('autoMarkAbsent', false);
+    if (!isAutoMarkEnabled) {
+      console.log('⏰ Auto-mark absent is disabled in settings');
+      return { success: true, message: 'Auto-mark absent is disabled', absentCount: 0 };
+    }
+    
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    
+    // Check if deadline has passed
+    const isAllowed = await isAttendanceAllowed();
+    if (isAllowed) {
+      const deadline = await getAttendanceDeadline();
+      const formattedDeadline = formatDeadlineTime(deadline);
+      console.log(`⏰ Auto-mark absent will run after ${formattedDeadline}. Current time: ${new Date().toLocaleTimeString()}`);
+      return { 
+        success: true, 
+        message: `Auto-mark absent will run after ${formattedDeadline}. Current time: ${new Date().toLocaleTimeString()}`,
+        absentCount: 0 
+      };
+    }
+    
+    console.log(`📅 Running auto-mark absent for: ${today.toDateString()} at ${new Date().toLocaleTimeString()}`);
+    
+    const allEmployees = await User.find({ isActive: true });
+    console.log(`👥 Total active employees: ${allEmployees.length}`);
+    
+    const todayAttendances = await Attendance.find({ 
+      date: { 
+        $gte: today, 
+        $lt: tomorrow 
+      },
+      type: 'Present'
+    });
+    
+    const markedEmployeeIds = todayAttendances.map(a => a.employeeId.toString());
+    console.log(`✅ Employees who marked present today: ${markedEmployeeIds.length}`);
+    
+    let absentCount = 0;
+    const absentEmployees = [];
+    
+    for (const employee of allEmployees) {
+      const employeeIdStr = employee._id.toString();
+      
+      if (!markedEmployeeIds.includes(employeeIdStr)) {
+        try {
+          const existingAbsent = await Attendance.findOne({
+            employeeId: employee._id,
+            date: { $gte: today, $lt: tomorrow },
+            status: 'Absent'
+          });
+          
+          if (existingAbsent) {
+            console.log(`⚠️ ${employee.name} already marked absent`);
+            continue;
+          }
+          
+          const deadline = await getAttendanceDeadline();
+          const formattedDeadline = formatDeadlineTime(deadline);
+          const attendance = new Attendance({
+            name: employee.name,
+            employeeId: employee._id,
+            date: today,
+            type: 'Present',
+            status: 'Absent',
+            reason: `Auto-marked absent - No attendance marked before ${formattedDeadline}`,
+            markedBy: 'system',
+            locationCaptured: false,
+          });
+          
+          await attendance.save();
+          absentCount++;
+          absentEmployees.push(employee.name);
+          console.log(`✅ Auto-marked absent: ${employee.name} (No attendance before ${formattedDeadline})`);
+        } catch (createError) {
+          console.error(`❌ Failed to mark absent for ${employee.name}:`, createError.message);
+        }
+      }
+    }
+    
+    console.log(`✅ Auto-mark absent completed at ${new Date().toLocaleTimeString()}. ${absentCount} employees marked absent.`);
+    if (absentEmployees.length > 0) {
+      console.log(`📋 Absent employees: ${absentEmployees.join(', ')}`);
+    }
+    
+    return { 
+      success: true, 
+      message: `Auto-mark absent completed. ${absentCount} employees marked absent.`,
+      absentCount,
+      absentEmployees,
+      time: new Date().toISOString(),
+    };
+  } catch (error) {
+    console.error('❌ Auto-mark absent error:', error);
+    return { success: false, error: error.message };
   }
 };

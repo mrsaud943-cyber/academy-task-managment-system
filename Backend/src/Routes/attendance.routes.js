@@ -1,3 +1,178 @@
+// // import express from "express";
+// // import {
+// //   createAttendanceRequest,
+// //   getPendingRequests,
+// //   handleAttendanceAction,
+// //   getEmployeeRequests,
+// //   getAllRequests,
+// //   deleteRequest,
+// //   editAttendanceRequest,
+// //   getAttendanceByDateRange,
+// //   getAttendanceStats,
+// //   createAttendanceWithValidation,
+// //   autoMarkAbsent,
+// // } from "../Controllers/attendance.controller.js";
+
+// // import { checkLoginAttempts } from '../Middleware/loginAttempts.middleware.js';
+// // import { checkSessionTimeout } from '../Middleware/session.middleware.js';
+
+// // const router = express.Router();
+
+// // // Apply session timeout check to all routes
+// // router.use(checkSessionTimeout);
+
+// // // ============================================
+// // // ATTENDANCE ROUTES
+// // // ============================================
+
+// // // Create attendance with validation (time window check)
+// // router.post("/create", createAttendanceWithValidation);
+
+// // // Get all pending requests (with filters)
+// // router.get("/pending", getPendingRequests);
+
+// // // Get all requests with filters & pagination
+// // router.get("/all", getAllRequests);
+
+// // // Handle attendance action (Approve/Reject)
+// // router.put("/:id/action", handleAttendanceAction);
+
+// // // Get employee-specific requests
+// // router.get("/employee", getEmployeeRequests);
+
+// // // Get attendance by date range
+// // router.get("/date-range", getAttendanceByDateRange);
+
+// // // Get attendance statistics
+// // router.get("/stats", getAttendanceStats);
+
+// // // Edit attendance request
+// // router.put("/:id/edit", editAttendanceRequest);
+
+// // // Delete request
+// // router.delete("/:id", deleteRequest);
+
+// // // Auto-mark absent (can be called by cron job)
+// // router.post('/auto-mark-absent', async (req, res) => {
+// //   try {
+// //     const result = await autoMarkAbsent();
+// //     if (result.success) {
+// //       res.json({ 
+// //         success: true, 
+// //         message: `Auto-mark absent completed. ${result.absentCount || 0} employees marked absent.` 
+// //       });
+// //     } else {
+// //       res.status(500).json({ success: false, message: result.error });
+// //     }
+// //   } catch (error) {
+// //     res.status(500).json({ success: false, message: error.message });
+// //   }
+// // });
+
+// // export default router;
+
+
+// // Backend/src/Routes/attendance.routes.js
+// import express from "express";
+// import {
+//   createAttendanceRequest,
+//   getPendingRequests,
+//   handleAttendanceAction,
+//   getEmployeeRequests,
+//   getAllRequests,
+//   deleteRequest,
+//   editAttendanceRequest,
+//   getAttendanceByDateRange,
+//   getAttendanceStats,
+//   createAttendanceWithValidation,
+//   autoMarkAbsent,
+//   canMarkAttendance,
+//   getTodayStatus,
+//   canEditRequest,
+//   getEditHistory,
+// } from "../Controllers/attendance.controller.js";
+
+// const router = express.Router();
+
+// // ============================================
+// // ATTENDANCE ROUTES
+// // ============================================
+
+// // ✅ Check if employee can mark attendance
+// router.get("/can-mark", canMarkAttendance);
+
+// // ✅ Get today's status for employee
+// router.get("/today-status", getTodayStatus);
+
+// // ✅ Check if employee can edit request
+// router.get("/:id/can-edit", canEditRequest);
+
+// // ✅ Get edit history
+// router.get("/:id/edit-history", getEditHistory);
+
+// // ✅ Create attendance with validation (time window check)
+// router.post("/create", createAttendanceWithValidation);
+
+// // ✅ Create attendance request (original)
+// router.post("/create-request", createAttendanceRequest);
+
+// // ✅ Edit attendance request (with 15 min window)
+// router.put("/:id/edit", editAttendanceRequest);
+
+// // ✅ Get all pending requests
+// router.get("/pending", getPendingRequests);
+
+// // ✅ Get all requests with filters
+// router.get("/all", getAllRequests);
+
+// // ✅ Handle attendance action (Approve/Reject)
+// router.put("/:id/action", handleAttendanceAction);
+
+// // ✅ Get employee-specific requests
+// router.get("/employee", getEmployeeRequests);
+
+// // ✅ Get attendance by date range
+// router.get("/date-range", getAttendanceByDateRange);
+
+// // ✅ Get attendance statistics
+// router.get("/stats", getAttendanceStats);
+
+// // ✅ Delete request
+// router.delete("/:id", deleteRequest);
+
+// // ✅ Auto-mark absent (manual trigger)
+// router.post('/auto-mark-absent', async (req, res) => {
+//   try {
+//     console.log('📢 Auto-mark absent API called');
+//     const result = await autoMarkAbsent();
+    
+//     if (result.success) {
+//       res.json({ 
+//         success: true, 
+//         message: result.message,
+//         absentCount: result.absentCount || 0,
+//         absentEmployees: result.absentEmployees || [],
+//         time: result.time || new Date().toISOString(),
+//       });
+//     } else {
+//       res.status(500).json({ 
+//         success: false, 
+//         message: result.error || 'Auto-mark absent failed' 
+//       });
+//     }
+//   } catch (error) {
+//     console.error('❌ Auto-mark absent route error:', error);
+//     res.status(500).json({ 
+//       success: false, 
+//       message: error.message 
+//     });
+//   }
+// });
+
+// export default router;
+
+
+// Backend/src/Routes/attendance.routes.js
 import express from "express";
 import {
   createAttendanceRequest,
@@ -9,35 +184,89 @@ import {
   editAttendanceRequest,
   getAttendanceByDateRange,
   getAttendanceStats,
+  createAttendanceWithValidation,
+  autoMarkAbsent,
+  canMarkAttendance,
+  getTodayStatus,
+  canEditRequest,
+  getEditHistory,
 } from "../Controllers/attendance.controller.js";
 
 const router = express.Router();
 
-// ✅ Create attendance request
-router.post("/create", createAttendanceRequest);
+// ============================================
+// ATTENDANCE ROUTES
+// ============================================
 
-// ✅ Get all pending requests (with filters)
-router.get("/pending", getPendingRequests);
+// Check if employee can mark attendance (dynamic deadline)
+router.get("/can-mark", canMarkAttendance);
 
-// ✅ Get all requests with filters & pagination
-router.get("/all", getAllRequests);
+// Get today's status for employee
+router.get("/today-status", getTodayStatus);
 
-// ✅ Handle attendance action (Approve/Reject)
-router.put("/:id/action", handleAttendanceAction);
+// Check if employee can edit request
+router.get("/:id/can-edit", canEditRequest);
 
-// ✅ Get employee-specific requests
-router.get("/employee", getEmployeeRequests);
+// Get edit history
+router.get("/:id/edit-history", getEditHistory);
 
-// ✅ Get attendance by date range
-router.get("/date-range", getAttendanceByDateRange);
+// Create attendance with validation (time window check)
+router.post("/create", createAttendanceWithValidation);
 
-// ✅ Get attendance statistics
-router.get("/stats", getAttendanceStats);
+// Create attendance request (original)
+router.post("/create-request", createAttendanceRequest);
 
-// ✅ Edit attendance request
+// Edit attendance request (with dynamic window)
 router.put("/:id/edit", editAttendanceRequest);
 
-// ✅ Delete request
+// Get all pending requests
+router.get("/pending", getPendingRequests);
+
+// Get all requests with filters
+router.get("/all", getAllRequests);
+
+// Handle attendance action (Approve/Reject)
+router.put("/:id/action", handleAttendanceAction);
+
+// Get employee-specific requests
+router.get("/employee", getEmployeeRequests);
+
+// Get attendance by date range
+router.get("/date-range", getAttendanceByDateRange);
+
+// Get attendance statistics
+router.get("/stats", getAttendanceStats);
+
+// Delete request
 router.delete("/:id", deleteRequest);
+
+// Auto-mark absent (manual trigger)
+router.post('/auto-mark-absent', async (req, res) => {
+  try {
+    console.log('📢 Auto-mark absent API called');
+    const result = await autoMarkAbsent();
+    
+    if (result.success) {
+      res.json({ 
+        success: true, 
+        message: result.message,
+        absentCount: result.absentCount || 0,
+        absentEmployees: result.absentEmployees || [],
+        time: result.time || new Date().toISOString(),
+      });
+    } else {
+      res.status(500).json({ 
+        success: false, 
+        message: result.error || 'Auto-mark absent failed' 
+      });
+    }
+  } catch (error) {
+    console.error('❌ Auto-mark absent route error:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: error.message 
+    });
+  }
+});
 
 export default router;

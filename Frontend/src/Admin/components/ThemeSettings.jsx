@@ -14,16 +14,14 @@ import toast from 'react-hot-toast';
 class ThemeSettingsErrorBoundary extends React.Component {
   constructor(props) {
     super(props);
-    this.state = { hasError: false, error: null };
+    this.state = { hasError: false };
   }
 
-  static getDerivedStateFromError(error) {
-    return { hasError: true, error };
+  static getDerivedStateFromError() {
+    return { hasError: true };
   }
 
-  componentDidCatch(error, errorInfo) {
-    console.error('ThemeSettings Error:', error?.message);
-  }
+  componentDidCatch() {}
 
   render() {
     if (this.state.hasError) {
@@ -31,9 +29,11 @@ class ThemeSettingsErrorBoundary extends React.Component {
         <div className="flex flex-col items-center justify-center min-h-[60vh] p-6">
           <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-6 max-w-md text-center">
             <h3 className="text-red-400 font-semibold mb-2">Something went wrong</h3>
-            <p className="text-sm text-neutral-400 mb-4">{this.state.error?.message || 'Failed to load'}</p>
-            <button onClick={() => window.location.reload()}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition">
+            <p className="text-sm text-neutral-400 mb-4">Failed to load theme settings</p>
+            <button 
+              onClick={() => window.location.reload()}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+            >
               Refresh Page
             </button>
           </div>
@@ -62,8 +62,6 @@ const LOCAL_THEMES = [
 
 // ============================================
 // LAYERED PILL-STACK PREVIEW
-// (dark swatch tucked in back, light swatch full-width up front —
-//  same cascading pill look used in professional palette exports)
 // ============================================
 const ThemeColorStack = ({ colors = [], size = 'md' }) => {
   const swatches = colors.slice(0, 6);
@@ -76,7 +74,7 @@ const ThemeColorStack = ({ colors = [], size = 'md' }) => {
   return (
     <div className="relative w-full" style={{ height: stackHeight }}>
       {swatches.map((color, i) => {
-        const widthPct = 58 + (i / Math.max(count - 1, 1)) * 42; // narrow at back, full width at front
+        const widthPct = 58 + (i / Math.max(count - 1, 1)) * 42;
         return (
           <div
             key={i}
@@ -112,7 +110,7 @@ const ThemeSettings = () => {
   let themeContext;
   try {
     themeContext = useTheme();
-  } catch (error) {
+  } catch {
     themeContext = null;
   }
 
@@ -136,8 +134,8 @@ const ThemeSettings = () => {
         }));
       }
     }
-  } catch (error) {
-    console.error('Error:', error);
+  } catch {
+    availableThemes = LOCAL_THEMES;
   }
 
   if (!Array.isArray(availableThemes) || availableThemes.length === 0) {
@@ -162,9 +160,10 @@ const ThemeSettings = () => {
         document.documentElement.setAttribute('data-theme', themeId);
         document.body.setAttribute('data-theme', themeId);
         localStorage.setItem('user-theme', themeId);
-        toast.success(`Previewing ${themeId}`);
+        const themeName = availableThemes.find(t => t.id === themeId)?.name || themeId;
+        toast.success(`Previewing ${themeName}`);
       }
-    } catch (error) {
+    } catch {
       toast.error('Failed to preview');
     }
   };
@@ -182,12 +181,12 @@ const ThemeSettings = () => {
     try {
       const result = await updateTheme(selectedTheme);
       if (result?.success) {
-        const themeName = availableThemes.find(t => t.id === selectedTheme)?.name;
+        const themeName = availableThemes.find(t => t.id === selectedTheme)?.name || selectedTheme;
         toast.success(`Theme changed to ${themeName}`);
       } else {
         toast.error('Failed to update');
       }
-    } catch (error) {
+    } catch {
       toast.error('Failed to update');
     } finally {
       setIsUpdating(false);
@@ -201,7 +200,7 @@ const ThemeSettings = () => {
       localStorage.setItem('user-theme', currentTheme);
       setSelectedTheme(currentTheme);
       toast.success('Reset to current');
-    } catch (error) {
+    } catch {
       toast.error('Failed to reset');
     }
   };
@@ -215,37 +214,40 @@ const ThemeSettings = () => {
   }
 
   return (
-    <div className="max-w-7xl mx-auto p-4 md:p-6">
+    <div className="max-w-7xl mx-auto p-3 sm:p-4 md:p-6">
       <div className="bg-[var(--bg-card)] border border-[var(--border-color)] rounded-2xl overflow-hidden shadow-lg">
 
         {/* Header */}
         <div className="p-4 md:p-6 border-b border-[var(--border-color)] bg-[var(--bg-secondary)]">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div className="flex items-center gap-3">
-              <button onClick={() => navigate('/admin/admin-setting')}
-                className="p-2 hover:bg-[var(--bg-hover)] rounded-lg transition">
+              <button 
+                onClick={() => navigate('/admin/admin-setting')}
+                className="p-2 hover:bg-[var(--bg-hover)] rounded-lg transition-colors"
+              >
                 <ArrowLeft className="w-5 h-5 text-[var(--text-secondary)]" />
               </button>
-              <div className="w-10 h-10 rounded-xl bg-[var(--accent-primary)]/10 flex items-center justify-center border border-[var(--accent-primary)]/20">
+              <div className="w-10 h-10 rounded-xl bg-[var(--accent-primary)]/10 flex items-center justify-center border border-[var(--accent-primary)]/20 flex-shrink-0">
                 <Palette className="w-5 h-5 text-[var(--accent-primary)]" />
               </div>
               <div>
-                <h2 className="text-lg font-semibold text-[var(--text-primary)]">Theme Settings</h2>
+                <h2 className="text-base sm:text-lg font-semibold text-[var(--text-primary)]">Theme Settings</h2>
                 <p className="text-xs text-[var(--text-secondary)]">{availableThemes.length} professional developer themes</p>
               </div>
             </div>
             <div className="flex items-center gap-2 w-full sm:w-auto">
-              <button onClick={handleResetPreview}
-                className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-medium 
-                           bg-[var(--bg-hover)] border border-[var(--border-color)] hover:border-[var(--border-hover)] transition">
+              <button 
+                onClick={handleResetPreview}
+                className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-[var(--bg-hover)] border border-[var(--border-color)] hover:border-[var(--border-hover)] transition-colors"
+              >
                 <RefreshCw className="w-4 h-4" />
                 <span className="hidden sm:inline">Reset</span>
               </button>
-              <button onClick={handleApplyTheme}
+              <button 
+                onClick={handleApplyTheme}
                 disabled={isUpdating || selectedTheme === currentTheme}
-                className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 bg-[var(--accent-primary)] 
-                           hover:bg-[var(--accent-hover)] text-[var(--text-inverse)] px-5 py-2 rounded-lg text-sm font-medium 
-                           transition shadow-lg shadow-[var(--accent-primary)]/20 disabled:opacity-50 disabled:cursor-not-allowed">
+                className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 bg-[var(--accent-primary)] hover:bg-[var(--accent-hover)] text-[var(--text-inverse)] px-5 py-2 rounded-lg text-sm font-medium transition-all shadow-lg shadow-[var(--accent-primary)]/20 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
                 {isUpdating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
                 Apply Theme
               </button>
@@ -265,19 +267,18 @@ const ThemeSettings = () => {
                   return (
                     <>
                       <Icon className="w-5 h-5 text-[var(--accent-primary)]" />
-                      <p className="text-lg font-semibold text-[var(--text-primary)]">{current?.name || 'Unknown'}</p>
+                      <p className="text-base sm:text-lg font-semibold text-[var(--text-primary)]">{current?.name || 'Unknown'}</p>
                     </>
                   );
                 })()}
               </div>
             </div>
-            <div className="flex items-center gap-4">
-              {/* Live Preview Strip */}
-              <div className="w-44">
+            <div className="flex flex-wrap items-center gap-4">
+              <div className="w-36 sm:w-44">
                 <ThemeColorStack colors={availableThemes.find(t => t.id === currentTheme)?.colors} size="sm" />
               </div>
               {themeChanged && (
-                <span className="text-xs text-[var(--success)] bg-[var(--success)]/10 px-3 py-1 rounded-full border border-[var(--success)]/20">
+                <span className="text-xs text-[var(--success)] bg-[var(--success)]/10 px-3 py-1 rounded-full border border-[var(--success)]/20 flex-shrink-0">
                   <Sparkles className="w-3 h-3 inline mr-1" /> Updated
                 </span>
               )}
@@ -289,49 +290,49 @@ const ThemeSettings = () => {
         <div className="p-3 md:p-4 bg-[var(--accent-primary)]/5 border-b border-[var(--border-color)]">
           <div className="flex items-center gap-2 text-sm text-[var(--text-secondary)]">
             <Eye className="w-4 h-4 text-[var(--accent-primary)] flex-shrink-0" />
-            <span>Click any theme card to see live preview. Colors change instantly!</span>
+            <span className="text-xs sm:text-sm">Click any theme card to see live preview. Colors change instantly!</span>
           </div>
         </div>
 
-        {/* ============================================
-            THEME GRID — LAYERED PILL-STACK CARDS
-            ============================================ */}
-        <div className="p-4 md:p-6">
-          <h3 className="text-sm font-semibold text-[var(--text-primary)] mb-5">
+        {/* Theme Grid */}
+        <div className="p-3 sm:p-4 md:p-6">
+          <h3 className="text-sm font-semibold text-[var(--text-primary)] mb-4 sm:mb-5">
             Choose Your Theme <span className="text-[var(--text-muted)] font-normal">({availableThemes.length})</span>
           </h3>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 sm:gap-5">
             {availableThemes.map((theme) => {
               const isSelected = selectedTheme === theme.id;
               const isCurrent = currentTheme === theme.id;
               const IconComponent = theme.icon || Palette;
 
               return (
-                <div key={theme.id} onClick={() => handleThemeSelect(theme.id)}
+                <div 
+                  key={theme.id} 
+                  onClick={() => handleThemeSelect(theme.id)}
                   className={`relative cursor-pointer rounded-3xl border-2 overflow-hidden transition-all duration-500 group
                     ${isSelected
                       ? 'border-[var(--accent-primary)] shadow-2xl shadow-[var(--accent-primary)]/30 scale-[1.03] -translate-y-1'
                       : 'border-transparent hover:shadow-xl hover:scale-[1.02]'
                     }
                     bg-[var(--bg-card)]
-                  `}>
-
-                  {/* Active/Preview Badges */}
+                  `}
+                >
+                  {/* Badges */}
                   {isCurrent && (
-                    <div className="absolute top-3 right-3 z-30 bg-[var(--success)] text-white text-[10px] font-bold px-3 py-1 rounded-full flex items-center gap-1 shadow-lg">
+                    <div className="absolute top-2 right-2 z-30 bg-[var(--success)] text-white text-[10px] font-bold px-2 sm:px-3 py-1 rounded-full flex items-center gap-1 shadow-lg">
                       <Check className="w-3 h-3" /> ACTIVE
                     </div>
                   )}
                   {isSelected && !isCurrent && (
-                    <div className="absolute top-3 right-3 z-30 bg-[var(--accent-primary)] text-[var(--text-inverse)] text-[10px] font-bold px-3 py-1 rounded-full shadow-lg">
+                    <div className="absolute top-2 right-2 z-30 bg-[var(--accent-primary)] text-[var(--text-inverse)] text-[10px] font-bold px-2 sm:px-3 py-1 rounded-full shadow-lg">
                       PREVIEW
                     </div>
                   )}
 
-                  {/* Layered pill-stack swatch, on a gradient stage like a palette export card */}
+                  {/* Color Stack */}
                   <div
-                    className="relative w-full pt-8 pb-4 px-4 flex items-end justify-center"
+                    className="relative w-full pt-6 sm:pt-8 pb-3 sm:pb-4 px-3 sm:px-4 flex items-end justify-center"
                     style={{
                       background: `linear-gradient(180deg, ${theme.colors?.[theme.colors.length - 1] || '#fff'}22 0%, ${theme.colors?.[0] || '#000'}33 100%)`
                     }}
@@ -340,18 +341,19 @@ const ThemeSettings = () => {
                   </div>
 
                   {/* Card Content */}
-                  <div className="p-4 pt-3 flex flex-col items-center text-center gap-2">
-                    <div className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all duration-300
+                  <div className="p-3 sm:p-4 pt-2 sm:pt-3 flex flex-col items-center text-center gap-1 sm:gap-2">
+                    <div className={`w-8 h-8 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center transition-all duration-300
                       ${isSelected
                         ? 'bg-[var(--accent-primary)]/20 scale-110'
                         : 'bg-[var(--bg-hover)]'
-                      }`}>
-                      <IconComponent className={`w-4 h-4 ${isSelected ? 'text-[var(--accent-primary)]' : 'text-[var(--text-secondary)]'}`} />
+                      }`}
+                    >
+                      <IconComponent className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${isSelected ? 'text-[var(--accent-primary)]' : 'text-[var(--text-secondary)]'}`} />
                     </div>
 
                     <div>
-                      <h4 className="font-bold text-sm text-[var(--text-primary)]">{theme.name}</h4>
-                      <p className="text-[11px] text-[var(--text-secondary)] mt-0.5 leading-tight">{theme.description}</p>
+                      <h4 className="font-bold text-xs sm:text-sm text-[var(--text-primary)]">{theme.name}</h4>
+                      <p className="text-[10px] sm:text-[11px] text-[var(--text-secondary)] mt-0.5 leading-tight">{theme.description}</p>
                     </div>
                   </div>
                 </div>
@@ -362,8 +364,8 @@ const ThemeSettings = () => {
 
         {/* Info Section */}
         <div className="p-4 md:p-6 border-t border-[var(--border-color)] bg-[var(--bg-secondary)]">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="bg-[var(--bg-hover)] rounded-xl p-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+            <div className="bg-[var(--bg-hover)] rounded-xl p-3 sm:p-4">
               <h4 className="text-sm font-bold text-[var(--text-primary)] mb-2 flex items-center gap-2">
                 <Palette className="w-4 h-4 text-[var(--accent-primary)]" /> Professional Themes
               </h4>
@@ -373,7 +375,7 @@ const ThemeSettings = () => {
                 <li>• VS Code, GitHub, Dracula, Nord & more</li>
               </ul>
             </div>
-            <div className="bg-[var(--bg-hover)] rounded-xl p-4">
+            <div className="bg-[var(--bg-hover)] rounded-xl p-3 sm:p-4">
               <h4 className="text-sm font-bold text-[var(--text-primary)] mb-2 flex items-center gap-2">
                 <Eye className="w-4 h-4 text-[var(--accent-primary)]" /> Live Preview
               </h4>
@@ -383,7 +385,7 @@ const ThemeSettings = () => {
                 <li>• Apply to save permanently</li>
               </ul>
             </div>
-            <div className="bg-[var(--bg-hover)] rounded-xl p-4">
+            <div className="bg-[var(--bg-hover)] rounded-xl p-3 sm:p-4">
               <h4 className="text-sm font-bold text-[var(--text-primary)] mb-2 flex items-center gap-2">
                 <Sparkles className="w-4 h-4 text-[var(--accent-primary)]" /> Features
               </h4>

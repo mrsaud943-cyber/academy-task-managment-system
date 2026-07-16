@@ -4,8 +4,7 @@ import {
   Check, Loader2, ArrowLeft, RefreshCw, LayoutGrid
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import toast from 'react-hot-toast';
-
+import toast, { Toaster } from 'react-hot-toast';
 
 const UIStylePreview = ({ styleId }) => (
   <div
@@ -37,7 +36,7 @@ const UIStyleSettings = () => {
   let ctx;
   try {
     ctx = useUIStyle();
-  } catch (e) {
+  } catch {
     ctx = null;
   }
 
@@ -78,6 +77,7 @@ const UIStyleSettings = () => {
     try {
       const result = await updateUIStyle(selected);
       if (result?.success) {
+        const name = availableUIStyles.find(s => s.id === selected)?.name || selected;
         toast.success(`UI style changed to ${name}`);
       } else {
         toast.error(result?.error || "Failed to update");
@@ -104,37 +104,59 @@ const UIStyleSettings = () => {
   }
 
   return (
-    <div className="max-w-6xl mx-auto p-4 md:p-6">
+    <div className="max-w-6xl mx-auto p-3 sm:p-4 md:p-6">
+      {/* ✅ Toast Container */}
+      <Toaster
+        position="top-right"
+        toastOptions={{
+          duration: 3000,
+          style: {
+            background: 'var(--bg-card)',
+            color: 'var(--text-primary)',
+            border: '1px solid var(--border-color)',
+          },
+          success: {
+            iconTheme: { primary: 'var(--success)', secondary: 'var(--text-inverse)' },
+          },
+          error: {
+            iconTheme: { primary: 'var(--danger)', secondary: 'var(--text-inverse)' },
+          },
+        }}
+      />
+
       <div className="bg-[var(--bg-card)] border border-[var(--border-color)] rounded-2xl overflow-hidden shadow-lg">
 
         {/* Header */}
         <div className="p-4 md:p-6 border-b border-[var(--border-color)] bg-[var(--bg-secondary)]">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div className="flex items-center gap-3">
-              <button onClick={() => navigate('/admin/admin-setting')}
-                className="p-2 hover:bg-[var(--bg-hover)] rounded-lg transition">
+              <button 
+                onClick={() => navigate('/admin/admin-setting')}
+                className="p-2 hover:bg-[var(--bg-hover)] rounded-lg transition-colors"
+              >
                 <ArrowLeft className="w-5 h-5 text-[var(--text-secondary)]" />
               </button>
-              <div className="w-10 h-10 rounded-xl bg-[var(--accent-primary)]/10 flex items-center justify-center border border-[var(--accent-primary)]/20">
+              <div className="w-10 h-10 rounded-xl bg-[var(--accent-primary)]/10 flex items-center justify-center border border-[var(--accent-primary)]/20 flex-shrink-0">
                 <LayoutGrid className="w-5 h-5 text-[var(--accent-primary)]" />
               </div>
               <div>
-                <h2 className="text-lg font-semibold text-[var(--text-primary)]">UI Design System</h2>
+                <h2 className="text-base sm:text-lg font-semibold text-[var(--text-primary)]">UI Design System</h2>
                 <p className="text-xs text-[var(--text-secondary)]">Layout, shape & spacing — independent of color theme</p>
               </div>
             </div>
             <div className="flex items-center gap-2 w-full sm:w-auto">
-              <button onClick={handleReset}
-                className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-medium
-                           bg-[var(--bg-hover)] border border-[var(--border-color)] hover:border-[var(--border-hover)] transition">
+              <button 
+                onClick={handleReset}
+                className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-[var(--bg-hover)] border border-[var(--border-color)] hover:border-[var(--border-hover)] transition-colors"
+              >
                 <RefreshCw className="w-4 h-4" />
                 <span className="hidden sm:inline">Reset</span>
               </button>
-              <button onClick={handleApply}
+              <button 
+                onClick={handleApply}
                 disabled={isUpdating || selected === currentUIStyle}
-                className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 bg-[var(--accent-primary)]
-                           hover:bg-[var(--accent-hover)] text-[var(--text-inverse)] px-5 py-2 rounded-lg text-sm font-medium
-                           transition disabled:opacity-50 disabled:cursor-not-allowed">
+                className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 bg-[var(--accent-primary)] hover:bg-[var(--accent-hover)] text-[var(--text-inverse)] px-5 py-2 rounded-lg text-sm font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              >
                 {isUpdating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
                 Apply
               </button>
@@ -143,22 +165,24 @@ const UIStyleSettings = () => {
         </div>
 
         {/* Grid */}
-        <div className="p-4 md:p-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+        <div className="p-3 sm:p-4 md:p-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
           {availableUIStyles.map((style) => {
             const isSelected = selected === style.id;
             const isCurrent = currentUIStyle === style.id;
             const Icon = style.icon || LayoutGrid;
 
             return (
-              <div key={style.id} onClick={() => handleSelect(style.id)}
-                className={`relative cursor-pointer rounded-2xl border-2 p-4 transition-all duration-300
+              <div 
+                key={style.id} 
+                onClick={() => handleSelect(style.id)}
+                className={`relative cursor-pointer rounded-2xl border-2 p-3 sm:p-4 transition-all duration-300
                   ${isSelected
                     ? 'border-[var(--accent-primary)] shadow-lg scale-[1.02]'
                     : 'border-transparent hover:border-[var(--border-hover)]'
                   } bg-[var(--bg-hover)]`}
               >
                 {isCurrent && (
-                  <span className="absolute top-3 right-3 bg-[var(--success)] text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
+                  <span className="absolute top-2 right-2 bg-[var(--success)] text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
                     ACTIVE
                   </span>
                 )}
