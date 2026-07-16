@@ -787,53 +787,47 @@ export const getSettingsStatus = async (req, res) => {
 export const initializeSettings = async () => {
   try {
     console.log("🔄 Initializing default settings...");
+    console.log("📡 Checking database connection...");
+
+    // ✅ Check if Setting model exists
+    const count = await Setting.countDocuments();
+    console.log(`📊 Existing settings count: ${count}`);
 
     const defaultSettings = [
       // Task Settings
-      { key: "employeeTheme", value: "dark", description: "Employee theme preference (dark/light)" },
-      { key: "employeeEmailNotifications", value: true, description: "Enable email notifications for employees" },
-      { key: "employeeTaskAlerts", value: true, description: "Enable task assignment alerts for employees" },
+      { key: "employeeTheme", value: "dark", description: "Employee theme preference" },
+      { key: "employeeEmailNotifications", value: true, description: "Enable email notifications" },
+      { key: "employeeTaskAlerts", value: true, description: "Enable task assignment alerts" },
       { key: "employeeDisplayName", value: "", description: "Employee display name" },
       { key: "employeeLanguage", value: "en", description: "Employee language preference" },
-      { key: "employeeSessionTimeout", value: 30, description: "Employee session timeout in minutes" },
-      { key: "maxEmployeesPerTask", value: 5, description: "Maximum number of employees that can be assigned to a single task" },
-      { key: "maxTasksPerProject", value: 100, description: "Maximum number of tasks allowed per project" },
-      { key: "defaultProjectStatus", value: "Pending", description: "Default status for newly created projects" },
-      { key: "allowMultipleAssignees", value: true, description: "Allow assigning multiple employees to a single task" },
+      { key: "employeeSessionTimeout", value: 30, description: "Employee session timeout" },
+      { key: "maxEmployeesPerTask", value: 5, description: "Maximum employees per task" },
+      { key: "maxTasksPerProject", value: 100, description: "Maximum tasks per project" },
+      { key: "defaultProjectStatus", value: "Pending", description: "Default project status" },
+      { key: "allowMultipleAssignees", value: true, description: "Allow multiple assignees" },
       
       // Attendance Settings
-      { key: "attendanceTimeWindow", value: 15, description: "Minutes allowed before/after scheduled time for attendance" },
-      { key: "autoMarkAbsent", value: false, description: "Automatically mark employees as absent if no attendance recorded" },
-      { key: "allowGeoLocation", value: true, description: "Require location data for attendance marking" },
-      
-      // ✅ NEW: Attendance Deadline Setting
-      { 
-        key: "attendanceDeadline", 
-        value: "17:00", 
-        description: "Deadline time for marking attendance (24-hour format, e.g., 17:00 for 5 PM)" 
-      },
-      
-      // ✅ NEW: Attendance Edit Window Setting
-      { 
-        key: "attendanceEditWindow", 
-        value: 15, 
-        description: "Minutes allowed for employees to edit their attendance request after submission" 
-      },
+      { key: "attendanceTimeWindow", value: 15, description: "Minutes allowed before/after scheduled time" },
+      { key: "autoMarkAbsent", value: false, description: "Auto mark absent" },
+      { key: "allowGeoLocation", value: true, description: "Allow location tracking" },
+      { key: "attendanceDeadline", value: "17:00", description: "Attendance deadline" },
+      { key: "attendanceEditWindow", value: 15, description: "Minutes to edit attendance" },
       
       // Security Settings
-      { key: "twoFactorAuth", value: false, description: "Enable two-factor authentication for admin accounts" },
-      { key: "sessionTimeout", value: 60, description: "Minutes of inactivity before automatic logout" },
-      { key: "maxLoginAttempts", value: 5, description: "Maximum failed login attempts before account lockout" },
+      { key: "twoFactorAuth", value: false, description: "Enable 2FA" },
+      { key: "sessionTimeout", value: 60, description: "Session timeout in minutes" },
+      { key: "maxLoginAttempts", value: 5, description: "Max login attempts" },
       
       // Appearance Settings
-      { key: "theme", value: "vscode-dark", description: "Website theme preference" },
-      { key: "uiStyle", value: "material", description: "UI Design System - Layout, shape & spacing" },
-      { key: "compactMode", value: false, description: "Reduce spacing for more content visibility" },
+      { key: "theme", value: "vscode-dark", description: "Website theme" },
+      { key: "uiStyle", value: "material", description: "UI Design System" },
+      { key: "compactMode", value: false, description: "Compact mode" },
     ];
 
     let createdCount = 0;
     let existingCount = 0;
 
+    // ✅ Use try-catch for each setting
     for (const setting of defaultSettings) {
       try {
         const exists = await Setting.findOne({ key: setting.key });
@@ -846,17 +840,20 @@ export const initializeSettings = async () => {
         }
       } catch (error) {
         console.error(`❌ Error creating setting ${setting.key}:`, error.message);
+        // Continue with next setting instead of stopping
       }
     }
 
     console.log(`📊 Settings initialized: ${createdCount} created, ${existingCount} existing`);
     return { createdCount, existingCount };
+
   } catch (error) {
-    console.error("❌ Initialize Settings Error:", error);
-    throw error;
+    console.error("❌ Initialize Settings Error:", error.message);
+    console.error("❌ Error Stack:", error.stack);
+    // ✅ Don't throw error, just return partial success
+    return { createdCount: 0, existingCount: 0, error: error.message };
   }
 };
-
 // ============================================
 // ✅ GET SETTINGS GROUPED BY CATEGORY
 // ============================================
