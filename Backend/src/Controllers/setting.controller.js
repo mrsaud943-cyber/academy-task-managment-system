@@ -53,6 +53,29 @@ export const updateSetting = async (req, res) => {
     const { key } = req.params;
     let { value, description } = req.body;
 
+    // ✅ Validate attendanceDeadline format
+    if (key === "attendanceDeadline" && value) {
+      // Ensure format is HH:MM
+      if (!/^\d{1,2}:\d{2}$/.test(value)) {
+        // Try to fix common issues
+        if (value.includes(':')) {
+          const parts = value.split(':');
+          const h = parseInt(parts[0]) || 17;
+          const m = parseInt(parts[1]) || 0;
+          value = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+        } else {
+          value = "17:00";
+        }
+      }
+
+      // Validate hours (0-23) and minutes (0-59)
+      const [h, m] = value.split(':').map(Number);
+      if (isNaN(h) || h > 23 || isNaN(m) || m > 59) {
+        value = "17:00";
+      }
+    }
+
+    // If value is null or undefined, set default
     if (value === undefined || value === null) {
       if (key === "theme") {
         value = "vscode-dark";
@@ -63,10 +86,12 @@ export const updateSetting = async (req, res) => {
       }
     }
 
+    // Validate theme
     if (key === "theme" && !VALID_THEMES.includes(value)) {
       value = "vscode-dark";
     }
 
+    // Validate UI style
     if (key === "uiStyle" && !UI_STYLES_CONFIG.includes(value)) {
       value = "material";
     }
@@ -239,7 +264,7 @@ export const isAttendanceAllowed = async () => {
     const deadline = await getAttendanceDeadline();
     const [hours, minutes] = deadline.split(':').map(Number);
     
-    // ✅ Use Pakistan Time (UTC+5)
+    // ✅ Use Pakistan Time (UTC+5) - Fixed
     const now = new Date();
     const pakistanTime = new Date(now.getTime() + (5 * 60 * 60 * 1000));
     const currentHour = pakistanTime.getHours();
@@ -248,8 +273,8 @@ export const isAttendanceAllowed = async () => {
     const currentTotalMinutes = currentHour * 60 + currentMinutes;
     const deadlineTotalMinutes = hours * 60 + minutes;
     
-    console.log(`🕐 Current Pakistan Time: ${currentHour}:${currentMinutes}`);
-    console.log(`⏰ Deadline: ${hours}:${minutes}`);
+    console.log(`🕐 Current Pakistan Time: ${currentHour}:${String(currentMinutes).padStart(2, '0')}`);
+    console.log(`⏰ Deadline: ${hours}:${String(minutes).padStart(2, '0')}`);
     console.log(`✅ Can Mark: ${currentTotalMinutes < deadlineTotalMinutes}`);
     
     return currentTotalMinutes < deadlineTotalMinutes;
@@ -259,13 +284,12 @@ export const isAttendanceAllowed = async () => {
   }
 };
 
-// ✅ FIXED: Use Pakistan Time (UTC+5) for production
 export const getRemainingAttendanceTime = async () => {
   try {
     const deadline = await getAttendanceDeadline();
     const [hours, minutes] = deadline.split(':').map(Number);
     
-    // ✅ Get current time in Pakistan (UTC+5)
+    // ✅ Use Pakistan Time (UTC+5) - Fixed
     const now = new Date();
     const pakistanTime = new Date(now.getTime() + (5 * 60 * 60 * 1000));
     const currentHour = pakistanTime.getHours();
@@ -296,6 +320,7 @@ export const getRemainingAttendanceTime = async () => {
     };
   }
 };
+
 
 // ============================================
 // EXPORTED SETTINGS GETTERS
@@ -365,7 +390,7 @@ export const getSettingsStatus = async (req, res) => {
       attendanceDeadline: await getAttendanceDeadline(),
       attendanceEditWindow: await getAttendanceEditWindow(),
     };
-    
+
     res.status(200).json({
       success: true,
       data: status,
@@ -401,19 +426,19 @@ export const initializeSettings = async () => {
       { key: "maxTasksPerProject", value: 100, description: "Maximum tasks per project" },
       { key: "defaultProjectStatus", value: "Pending", description: "Default project status" },
       { key: "allowMultipleAssignees", value: true, description: "Allow multiple assignees" },
-      
+
       // Attendance Settings
       { key: "attendanceTimeWindow", value: 15, description: "Minutes allowed before/after scheduled time" },
       { key: "autoMarkAbsent", value: false, description: "Auto mark absent" },
       { key: "allowGeoLocation", value: true, description: "Allow location tracking" },
       { key: "attendanceDeadline", value: "17:00", description: "Attendance deadline (24-hour format)" },
       { key: "attendanceEditWindow", value: 15, description: "Minutes to edit attendance" },
-      
+
       // Security Settings
       { key: "twoFactorAuth", value: false, description: "Enable 2FA" },
       { key: "sessionTimeout", value: 60, description: "Session timeout in minutes" },
       { key: "maxLoginAttempts", value: 5, description: "Max login attempts" },
-      
+
       // Appearance Settings
       { key: "theme", value: "vscode-dark", description: "Website theme" },
       { key: "uiStyle", value: "material", description: "UI Design System" },
