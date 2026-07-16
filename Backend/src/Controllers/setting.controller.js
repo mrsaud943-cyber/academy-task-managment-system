@@ -234,21 +234,23 @@ export const getAttendanceEditWindow = async () => {
   return await getSettingValue("attendanceEditWindow", 15);
 };
 
-// ✅ FIXED: Use Pakistan Time (UTC+5) for production
 export const isAttendanceAllowed = async () => {
   try {
     const deadline = await getAttendanceDeadline();
     const [hours, minutes] = deadline.split(':').map(Number);
     
-    // ✅ Get current time in Pakistan (UTC+5)
+    // ✅ Use Pakistan Time (UTC+5)
     const now = new Date();
-    // Convert to Pakistan time (UTC+5) - add 5 hours
     const pakistanTime = new Date(now.getTime() + (5 * 60 * 60 * 1000));
     const currentHour = pakistanTime.getHours();
     const currentMinutes = pakistanTime.getMinutes();
     
     const currentTotalMinutes = currentHour * 60 + currentMinutes;
     const deadlineTotalMinutes = hours * 60 + minutes;
+    
+    console.log(`🕐 Current Pakistan Time: ${currentHour}:${currentMinutes}`);
+    console.log(`⏰ Deadline: ${hours}:${minutes}`);
+    console.log(`✅ Can Mark: ${currentTotalMinutes < deadlineTotalMinutes}`);
     
     return currentTotalMinutes < deadlineTotalMinutes;
   } catch (error) {
