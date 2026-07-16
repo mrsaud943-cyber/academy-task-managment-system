@@ -53,7 +53,6 @@ export const updateSetting = async (req, res) => {
     const { key } = req.params;
     let { value, description } = req.body;
 
-    // If value is null or undefined, set default based on key
     if (value === undefined || value === null) {
       if (key === "theme") {
         value = "vscode-dark";
@@ -64,12 +63,10 @@ export const updateSetting = async (req, res) => {
       }
     }
 
-    // Validate theme
     if (key === "theme" && !VALID_THEMES.includes(value)) {
       value = "vscode-dark";
     }
 
-    // Validate UI style
     if (key === "uiStyle" && !UI_STYLES_CONFIG.includes(value)) {
       value = "material";
     }
@@ -119,10 +116,6 @@ export const deleteSetting = async (req, res) => {
   }
 };
 
-// ============================================
-// THEME FUNCTIONS
-// ============================================
-
 export const updateTheme = async (req, res) => {
   try {
     let { theme } = req.body;
@@ -166,10 +159,6 @@ export const getTheme = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
-
-// ============================================
-// UI STYLE FUNCTIONS
-// ============================================
 
 export const updateUIStyle = async (req, res) => {
   try {
@@ -234,7 +223,7 @@ export const getSettingValue = async (key, defaultValue = null) => {
 };
 
 // ============================================
-// ATTENDANCE DEADLINE FUNCTIONS - FIXED FOR PRODUCTION
+// ✅ ATTENDANCE DEADLINE FUNCTIONS - TIMEZONE FIXED
 // ============================================
 
 export const getAttendanceDeadline = async () => {
@@ -245,13 +234,15 @@ export const getAttendanceEditWindow = async () => {
   return await getSettingValue("attendanceEditWindow", 15);
 };
 
+// ✅ FIXED: Use Pakistan Time (UTC+5) for production
 export const isAttendanceAllowed = async () => {
   try {
     const deadline = await getAttendanceDeadline();
     const [hours, minutes] = deadline.split(':').map(Number);
     
-    // ✅ Use Pakistan time (UTC+5) - Fixed for production
+    // ✅ Get current time in Pakistan (UTC+5)
     const now = new Date();
+    // Convert to Pakistan time (UTC+5) - add 5 hours
     const pakistanTime = new Date(now.getTime() + (5 * 60 * 60 * 1000));
     const currentHour = pakistanTime.getHours();
     const currentMinutes = pakistanTime.getMinutes();
@@ -266,12 +257,13 @@ export const isAttendanceAllowed = async () => {
   }
 };
 
+// ✅ FIXED: Use Pakistan Time (UTC+5) for production
 export const getRemainingAttendanceTime = async () => {
   try {
     const deadline = await getAttendanceDeadline();
     const [hours, minutes] = deadline.split(':').map(Number);
     
-    // ✅ Use Pakistan time (UTC+5) - Fixed for production
+    // ✅ Get current time in Pakistan (UTC+5)
     const now = new Date();
     const pakistanTime = new Date(now.getTime() + (5 * 60 * 60 * 1000));
     const currentHour = pakistanTime.getHours();
@@ -391,7 +383,6 @@ export const getSettingsStatus = async (req, res) => {
 export const initializeSettings = async () => {
   try {
     console.log("🔄 Initializing default settings...");
-    console.log("📡 Checking database connection...");
 
     const count = await Setting.countDocuments();
     console.log(`📊 Existing settings count: ${count}`);
