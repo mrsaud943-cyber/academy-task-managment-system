@@ -9,7 +9,7 @@ import {
 } from "./setting.controller.js";
 
 // ============================================
-// ✅ HELPER: Format Deadline Time
+// HELPER: Format Deadline Time
 // ============================================
 const formatDeadlineTime = (time) => {
   try {
@@ -19,8 +19,7 @@ const formatDeadlineTime = (time) => {
     const ampm = hours >= 12 ? 'PM' : 'AM';
     const hour12 = hours % 12 || 12;
     return `${hour12}:${String(minutes).padStart(2, '0')} ${ampm}`;
-  } catch (error) {
-    console.error('Format deadline error:', error);
+  } catch {
     return '5:00 PM';
   }
 };
@@ -35,8 +34,7 @@ export const isWithinAttendanceWindow = async (requestTime) => {
     const requestDate = new Date(requestTime);
     const diffMinutes = (now - requestDate) / (1000 * 60);
     return diffMinutes <= timeWindow;
-  } catch (error) {
-    console.error('Time window check error:', error);
+  } catch {
     return true;
   }
 };
@@ -93,16 +91,13 @@ export const createAttendanceWithValidation = async (req, res) => {
 };
 
 // ============================================
-// ✅ CAN MARK ATTENDANCE (Dynamic Deadline) - FIXED
+// CAN MARK ATTENDANCE (Dynamic Deadline) - FIXED
 // ============================================
 export const canMarkAttendance = async (req, res) => {
   try {
-    // ✅ Get deadline from database
-    const deadline = await getAttendanceDeadline(); // Returns "13:00"
+    const deadline = await getAttendanceDeadline();
     const isAllowed = await isAttendanceAllowed();
     const remaining = await getRemainingAttendanceTime();
-    
-    // ✅ Format deadline for display (convert "13:00" to "1:00 PM")
     const formattedDeadline = formatDeadlineTime(deadline);
     
     res.json({
@@ -112,8 +107,8 @@ export const canMarkAttendance = async (req, res) => {
         ? `You can mark attendance until ${formattedDeadline}` 
         : `Attendance window is closed (after ${formattedDeadline})`,
       currentTime: new Date().toISOString(),
-      deadline: formattedDeadline, // ✅ Return formatted deadline
-      rawDeadline: deadline, // ✅ Return raw deadline for debugging
+      deadline: formattedDeadline,
+      rawDeadline: deadline,
       remainingTime: remaining,
       isPastDeadline: !isAllowed,
     });
@@ -123,7 +118,7 @@ export const canMarkAttendance = async (req, res) => {
 };
 
 // ============================================
-// GET TODAY'S STATUS (with dynamic deadline)
+// GET TODAY'S STATUS
 // ============================================
 export const getTodayStatus = async (req, res) => {
   try {
@@ -277,7 +272,6 @@ export const createAttendanceRequest = async (req, res) => {
       });
     }
 
-    // ✅ Check if attendance is allowed (dynamic deadline)
     const isAllowed = await isAttendanceAllowed();
     if (!isAllowed) {
       const deadline = await getAttendanceDeadline();
@@ -324,7 +318,7 @@ export const createAttendanceRequest = async (req, res) => {
 };
 
 // ============================================
-// EDIT ATTENDANCE REQUEST (with dynamic window)
+// EDIT ATTENDANCE REQUEST
 // ============================================
 export const editAttendanceRequest = async (req, res) => {
   try {
@@ -538,7 +532,7 @@ export const getEmployeeRequests = async (req, res) => {
 };
 
 // ============================================
-// HANDLE ATTENDANCE ACTION (Approve/Reject)
+// HANDLE ATTENDANCE ACTION
 // ============================================
 export const handleAttendanceAction = async (req, res) => {
   try {
@@ -675,7 +669,7 @@ export const getAttendanceStats = async (req, res) => {
 };
 
 // ============================================
-// AUTO MARK ABSENT (with dynamic deadline)
+// AUTO MARK ABSENT
 // ============================================
 export const autoMarkAbsent = async () => {
   try {
@@ -690,7 +684,6 @@ export const autoMarkAbsent = async () => {
     const tomorrow = new Date(today);
     tomorrow.setDate(tomorrow.getDate() + 1);
     
-    // Check if deadline has passed
     const isAllowed = await isAttendanceAllowed();
     if (isAllowed) {
       const deadline = await getAttendanceDeadline();

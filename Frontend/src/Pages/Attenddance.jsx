@@ -306,7 +306,7 @@ export default function Attenddance() {
             }));
           }
         })
-        .catch(() => { });
+        .catch(() => {});
 
       toast.success(`📍 Location captured!`);
 
@@ -341,7 +341,7 @@ export default function Attenddance() {
             const addr = addressData.specificAddress || addressData.locationName;
             setFormData(prev => ({ ...prev, locationAddress: addr }));
           })
-          .catch(() => { });
+          .catch(() => {});
 
         if (submittedRequestId) {
           updateAttendanceLocationBackground(
