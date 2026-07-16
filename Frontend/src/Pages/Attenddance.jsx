@@ -6,7 +6,7 @@ import {
   Clock, MapPin, Check, AlertTriangle, ChevronDown, ChevronUp, Info,
   Ban, Filter, Search, XCircle, ArrowLeft, History, Globe, Edit2
 } from "lucide-react";
-import toast from "react-hot-toast";
+import toast, { Toaster } from 'react-hot-toast';
 import {
   getCurrentPosition,
   getAddressFromCoords,
@@ -27,7 +27,6 @@ export default function Attenddance() {
   const [isAttendanceClosed, setIsAttendanceClosed] = useState(false);
   const [editWindow, setEditWindow] = useState(15);
 
-  // ✅ Edit modal state
   const [editingRequest, setEditingRequest] = useState(null);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editFormData, setEditFormData] = useState({
@@ -80,8 +79,7 @@ export default function Attenddance() {
       const ampm = hours >= 12 ? 'PM' : 'AM';
       const hour12 = hours % 12 || 12;
       return `${hour12}:${String(minutes).padStart(2, '0')} ${ampm}`;
-    } catch (error) {
-      console.error('Format deadline error:', error);
+    } catch {
       return '5:00 PM';
     }
   };
@@ -101,44 +99,37 @@ export default function Attenddance() {
             setFormData(prev => ({ ...prev, name }));
           }
         }
-      } catch (error) {
-        console.error("Error parsing user data:", error);
+      } catch {
+        // Silent fail
       }
     };
     getUserData();
   }, []);
 
-  // ===== ✅ CHECK ATTENDANCE STATUS - FIXED =====
+  // ===== CHECK ATTENDANCE STATUS =====
   const checkAttendanceStatus = useCallback(async () => {
     try {
-      console.log('🔄 Fetching attendance status...');
       const res = await api.get('/attendance/can-mark');
-      console.log('📢 Attendance API Response:', res.data);
-      
-      // ✅ Set canMarkAttendance
       setCanMarkAttendance(res.data.canMark);
-      
-      // ✅ Set deadline from API response
+
       const deadlineTime = res.data.deadline || "17:00";
-      const formattedDeadline = deadlineTime.includes('PM') || deadlineTime.includes('AM') 
-        ? deadlineTime 
+      const formattedDeadline = deadlineTime.includes('PM') || deadlineTime.includes('AM')
+        ? deadlineTime
         : formatDeadlineTime(deadlineTime);
-      
-      console.log('📢 Formatted Deadline:', formattedDeadline);
+
       setAttendanceDeadline(formattedDeadline);
-      
-      // ✅ Set edit window from API if available
+
       if (res.data.editWindow) {
         setEditWindow(res.data.editWindow);
       }
-      
+
       setIsAttendanceClosed(res.data.isPastDeadline || !res.data.canMark);
 
       if (!res.data.canMark) {
         toast.error(`⏰ Attendance window is closed. Please mark before ${formattedDeadline}.`);
       }
-    } catch (error) {
-      console.error('Error checking attendance status:', error);
+    } catch {
+      // Silent fail
     }
   }, []);
 
@@ -149,36 +140,30 @@ export default function Attenddance() {
     try {
       const res = await api.get(`/attendance/today-status?employeeId=${employeeId}`);
       setTodayStatus(res.data.data);
-    } catch (error) {
-      console.error('Error checking today status:', error);
+    } catch {
+      // Silent fail
     }
   }, [employeeId]);
 
-  // ===== ✅ FORCE REFRESH ON MOUNT =====
+  // ===== FORCE REFRESH ON MOUNT =====
   useEffect(() => {
     const refreshAttendanceStatus = async () => {
       try {
-        console.log('🔄 Force refresh - Fetching attendance status...');
         const res = await api.get('/attendance/can-mark');
-        console.log('📢 Force refresh - Attendance API:', res.data);
-        
         const deadlineTime = res.data.deadline || "17:00";
-        const formattedDeadline = deadlineTime.includes('PM') || deadlineTime.includes('AM') 
-          ? deadlineTime 
+        const formattedDeadline = deadlineTime.includes('PM') || deadlineTime.includes('AM')
+          ? deadlineTime
           : formatDeadlineTime(deadlineTime);
-        
+
         setCanMarkAttendance(res.data.canMark);
         setAttendanceDeadline(formattedDeadline);
         setIsAttendanceClosed(res.data.isPastDeadline || !res.data.canMark);
-        
-        console.log('📢 Updated Deadline:', formattedDeadline);
-      } catch (error) {
-        console.error('Force refresh error:', error);
+      } catch {
+        // Silent fail
       }
     };
-    
     refreshAttendanceStatus();
-  }, []); // ✅ Runs once on mount
+  }, []);
 
   useEffect(() => {
     if (employeeId) {
@@ -194,7 +179,7 @@ export default function Attenddance() {
         const res = await api.get("/settings/allowGeoLocation");
         const isEnabled = res.data?.value === true || res.data?.value === "true";
         setLocationEnabled(isEnabled);
-      } catch (error) {
+      } catch {
         setLocationEnabled(false);
       }
     };
@@ -238,8 +223,7 @@ export default function Attenddance() {
         rejected: allData.filter(r => r.status === "Rejected").length,
         pending: allData.filter(r => r.status === "Pending").length
       });
-    } catch (error) {
-      console.error("Fetch Error:", error);
+    } catch {
       toast.error("Failed to load attendance requests");
     } finally {
       if (append) setLoadingMore(false);
@@ -390,7 +374,7 @@ export default function Attenddance() {
   }, []);
 
   // ============================================
-  // ✅ EDIT REQUEST FUNCTIONS
+  // EDIT REQUEST FUNCTIONS
   // ============================================
   const openEditModal = async (request) => {
     setEditingRequest(request);
@@ -409,8 +393,8 @@ export default function Attenddance() {
       } else {
         toast.error(`Edit window expired. You can only edit within ${editWindow} minutes.`);
       }
-    } catch (error) {
-      toast.error(error.response?.data?.message || 'Failed to check edit status');
+    } catch {
+      toast.error('Failed to check edit status');
     }
   };
 
@@ -419,7 +403,7 @@ export default function Attenddance() {
     setEditing(true);
 
     try {
-      const res = await api.put(`/attendance/${editingRequest._id}/edit`, {
+      await api.put(`/attendance/${editingRequest._id}/edit`, {
         ...editFormData,
         employeeId: employeeId,
       });
@@ -501,6 +485,10 @@ export default function Attenddance() {
       }
 
       toast.success("Attendance request submitted successfully!");
+
+      // ✅ RESET FORM AND CLOSE MODAL
+      resetForm();
+
       setRequests([]);
       setPage(1);
       setHasMore(true);
@@ -508,8 +496,6 @@ export default function Attenddance() {
       checkTodayStatus();
 
     } catch (error) {
-      console.error("Submit Error:", error);
-
       if (error.response?.data?.code === 'ATTENDANCE_CLOSED') {
         toast.error(`❌ Attendance cannot be marked after ${attendanceDeadline}. You will be marked as absent.`);
       } else {
@@ -583,6 +569,23 @@ export default function Attenddance() {
   // ===== RENDER =====
   return (
     <div className="min-h-screen bg-[#f5f0eb] p-3 sm:p-4 font-sans">
+      <Toaster
+        position="top-right"
+        toastOptions={{
+          duration: 3000,
+          style: {
+            background: 'var(--bg-card)',
+            color: 'var(--text-primary)',
+            border: '1px solid var(--border-color)',
+          },
+          success: {
+            iconTheme: { primary: 'var(--success)', secondary: 'var(--text-inverse)' },
+          },
+          error: {
+            iconTheme: { primary: 'var(--danger)', secondary: 'var(--text-inverse)' },
+          },
+        }}
+      />
       <div className="max-w-6xl mx-auto space-y-4">
 
         {/* HEADER */}
@@ -601,7 +604,6 @@ export default function Attenddance() {
           </div>
 
           <div className="flex items-center gap-3 flex-wrap">
-            {/* ✅ Dynamic Deadline Display */}
             <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full border text-xs ${
               canMarkAttendance
                 ? "bg-emerald-50 text-emerald-600 border-emerald-200"
@@ -618,7 +620,6 @@ export default function Attenddance() {
               {locationEnabled ? "Location ON" : "Location OFF"}
             </div>
 
-            {/* HISTORY BUTTON */}
             <button
               onClick={() => navigate('/layout/employeesAttanddance-history')}
               className="inline-flex items-center gap-2 text-xs font-medium text-[#8a7a6a] hover:text-[#2c1810] hover:bg-[#f5f0eb] px-3 py-2 rounded-lg transition border border-[#e5ddd5]"
@@ -648,7 +649,7 @@ export default function Attenddance() {
           </div>
         </div>
 
-        {/* ✅ ATTENDANCE STATUS BANNER - DYNAMIC DEADLINE */}
+        {/* ATTENDANCE STATUS BANNER */}
         {!canMarkAttendance && (
           <div className="bg-red-50 border border-red-200 rounded-xl p-4 flex items-start gap-3">
             <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
@@ -1176,7 +1177,7 @@ export default function Attenddance() {
                         )}
                       </div>
 
-                      {/* ✅ Edit Button - Show if pending and within dynamic window */}
+                      {/* Edit Button - Show if pending and within dynamic window */}
                       {req.status === "Pending" && (
                         <div className="flex items-center gap-2 pt-2 border-t border-[#e5ddd5]/50">
                           {canEdit ? (

@@ -219,13 +219,7 @@ const Layout = () => {
               <span className="text-[11px] text-[#4CAF50] font-medium">Live</span>
             </div>
             
-            <button
-              onClick={handleLogout}
-              className="inline-flex items-center gap-2 text-xs font-semibold text-[#c0392b]/80 hover:text-[#c0392b] hover:bg-[#c0392b]/10 px-3.5 py-2 rounded-xl transition-all active:scale-95 border border-transparent hover:border-[#c0392b]/20"
-            >
-              <LogOut size={16} />
-              <span className="hidden xs:inline">Sign Out</span>
-            </button>
+          
           </div>
         </header>
 
