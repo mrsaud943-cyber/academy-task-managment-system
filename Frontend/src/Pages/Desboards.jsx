@@ -121,14 +121,14 @@ const EmployeeDashboard = () => {
 
       setMembers(membersData);
       setProjects(projectsData);
-      
+
       const filteredProjects = projectsData.filter(project => {
         return (project.tasks || []).some(task => {
           const taskUser = task.user?._id || task.user;
           return taskUser && String(taskUser) === String(employee._id);
         });
       });
-      
+
       setEmployeeProjects(filteredProjects);
       calculateEmployeeStats(projectsData);
       calculateTopPerformers(projectsData);
@@ -145,7 +145,7 @@ const EmployeeDashboard = () => {
         setMembers(employees);
         const projectsData = projectFallback.data?.data || projectFallback.data || [];
         setProjects(projectsData);
-        
+
         const filteredProjects = projectsData.filter(project => {
           return (project.tasks || []).some(task => {
             const taskUser = task.user?._id || task.user;
@@ -181,7 +181,7 @@ const EmployeeDashboard = () => {
           totalTasks++;
           taskCount++;
           totalMarks += task.obtainedMarks || 0;
-          
+
           if (task.completed || task.status === "Completed") {
             completedTasks++;
           } else {
@@ -221,7 +221,7 @@ const EmployeeDashboard = () => {
       (project.tasks || []).forEach(task => {
         const userId = task.user?._id || task.user || task.memberId || task.member;
         const isCompleted = task.status === "Completed" || task.completed === true;
-        
+
         if (userId) {
           const userIdStr = userId.toString();
           if (!performerMap[userIdStr]) {
@@ -492,12 +492,6 @@ const EmployeeDashboard = () => {
                 {employeeProjects.length}
               </span>
             </div>
-            <button 
-              onClick={() => navigate("/admin/project")}
-              className="text-xs text-[var(--accent-primary)] hover:text-[var(--accent-hover)] transition flex items-center gap-1"
-            >
-              View All <ChevronRight className="w-3.5 h-3.5" />
-            </button>
           </div>
 
           <div className="space-y-2 max-h-[320px] overflow-y-auto custom-scrollbar pr-1">
@@ -512,16 +506,15 @@ const EmployeeDashboard = () => {
                   const taskUser = task.user?._id || task.user;
                   return taskUser && String(taskUser) === String(employee._id);
                 });
-                
+
                 const totalTasks = employeeTasks.length;
                 const completedTasks = employeeTasks.filter(t => t.completed || t.status === "Completed").length;
                 const progress = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
 
                 return (
-                  <div 
-                    key={project._id} 
+                  <div
+                    key={project._id}
                     className="p-3 bg-[var(--bg-secondary)] rounded-lg border border-[var(--border-color)] hover:border-[var(--border-hover)] transition cursor-pointer"
-                    onClick={() => navigate(`/admin/project/${project._id}`)}
                   >
                     <div className="flex items-center justify-between">
                       <div className="flex-1 min-w-0">
@@ -537,7 +530,7 @@ const EmployeeDashboard = () => {
                         </div>
                       </div>
                       <div className="w-20 h-1.5 bg-[var(--bg-input)] rounded-full overflow-hidden ml-3 flex-shrink-0">
-                        <div 
+                        <div
                           className={`h-full rounded-full transition-all duration-500 ${getProgressColor(progress)}`}
                           style={{ width: `${progress}%` }}
                         />
@@ -554,7 +547,7 @@ const EmployeeDashboard = () => {
               })
             )}
             {employeeProjects.length > 5 && (
-              <button 
+              <button
                 onClick={() => navigate("/admin/project")}
                 className="w-full text-center text-xs text-[var(--accent-primary)] hover:text-[var(--accent-hover)] py-2"
               >
@@ -574,7 +567,7 @@ const EmployeeDashboard = () => {
                 {topPerformers.length}
               </span>
             </div>
-            <button 
+            <button
               onClick={() => navigate("/layout/ranking-employees")}
               className="text-xs text-[var(--accent-primary)] hover:text-[var(--accent-hover)] transition flex items-center gap-1"
             >
@@ -593,21 +586,19 @@ const EmployeeDashboard = () => {
                 const rank = index + 1;
                 const isCurrentUser = employee && String(performer.userId) === String(employee._id);
                 return (
-                  <div 
-                    key={performer.userId || index} 
-                    className={`flex items-center gap-3 p-2 rounded-lg border transition ${
-                      rank === 1 ? "border-yellow-500/30 bg-yellow-500/5" :
-                      rank === 2 ? "border-gray-400/30 bg-gray-400/5" :
-                      rank === 3 ? "border-amber-600/30 bg-amber-600/5" :
-                      "border-[var(--border-color)] bg-[var(--bg-secondary)]"
-                    } ${isCurrentUser ? "border-[var(--accent-primary)]/30 bg-[var(--accent-primary)]/5" : ""}`}
+                  <div
+                    key={performer.userId || index}
+                    className={`flex items-center gap-3 p-2 rounded-lg border transition ${rank === 1 ? "border-yellow-500/30 bg-yellow-500/5" :
+                        rank === 2 ? "border-gray-400/30 bg-gray-400/5" :
+                          rank === 3 ? "border-amber-600/30 bg-amber-600/5" :
+                            "border-[var(--border-color)] bg-[var(--bg-secondary)]"
+                      } ${isCurrentUser ? "border-[var(--accent-primary)]/30 bg-[var(--accent-primary)]/5" : ""}`}
                   >
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
-                      rank === 1 ? "bg-yellow-500/20 text-yellow-600" :
-                      rank === 2 ? "bg-gray-400/20 text-gray-500" :
-                      rank === 3 ? "bg-amber-500/20 text-amber-600" :
-                      "bg-[var(--bg-input)] text-[var(--text-muted)]"
-                    }`}>
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${rank === 1 ? "bg-yellow-500/20 text-yellow-600" :
+                        rank === 2 ? "bg-gray-400/20 text-gray-500" :
+                          rank === 3 ? "bg-amber-500/20 text-amber-600" :
+                            "bg-[var(--bg-input)] text-[var(--text-muted)]"
+                      }`}>
                       {getRankIcon(index)}
                     </div>
 
