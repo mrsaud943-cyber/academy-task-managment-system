@@ -11,6 +11,8 @@ import { UIStyleProvider } from "./Context/Uistylecontext.jsx";
 import VerticalCarouselDemo from "./Pages/Verticalcarousel.jsx";
 import EmployeeAttanddanceHistory from "./Pages/EmployeeAttanddanceHistory.jsx";
 
+import RankingEmployee from './Pages/RankingEmployee'
+
 // ============================================
 // ✅ LAZY LOADING - Only for route components
 // ============================================
@@ -26,7 +28,7 @@ const TaskManager = lazy(() => import("./Pages/TaskManager"));
 const ProjectManagment = lazy(() => import("./Pages/ProjectManagment"));
 const Attendace = lazy(() => import("./Pages/Attenddance"));
 const EmployeeProfile = lazy(() => import("./Pages/EmployeeProfile"));
-const RankingEmployee = lazy(() => import("./Pages/RankingEmployee"));
+// const RankingEmployee = lazy(() => import("./Pages/RankingEmployee"));
 
 // Admin Components
 const Layout = lazy(() => import("./Admin/components/Layout"));
