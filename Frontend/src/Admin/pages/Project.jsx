@@ -480,22 +480,7 @@ const Project = () => {
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div>
-                    <label className="block text-xs font-medium text-[var(--text-muted)] uppercase tracking-wider mb-1.5">
-                      Status
-                    </label>
-                    <select
-                      name="status"
-                      value={formData.status || ''}
-                      onChange={handleChange}
-                      className="w-full bg-[var(--bg-secondary)] border border-[var(--border-color)] text-[var(--text-primary)] rounded-lg px-3.5 py-2.5 text-sm focus:outline-none focus:border-[var(--accent-primary)] focus:ring-1 focus:ring-[var(--accent-primary)] transition-colors"
-                    >
-                      <option value="">Select status...</option>
-                      <option value="Pending">Pending</option>
-                      <option value="In Progress">In Progress</option>
-                      <option value="Completed">Completed</option>
-                    </select>
-                  </div>
+                 
                   <div>
                     <label className="block text-xs font-medium text-[var(--text-muted)] uppercase tracking-wider mb-1.5">
                       Start Date

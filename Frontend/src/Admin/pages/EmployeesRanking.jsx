@@ -20,8 +20,65 @@ import {
   Target,
   BarChart3,
   CheckCircle2,
+  TrendingUp,
+  Users,
+  Clock,
+  Calendar
 } from "lucide-react";
 import toast, { Toaster } from 'react-hot-toast';
+
+// ─── Reusable Components ─────────────────────────────────────────
+
+// Animated Counter Component
+const AnimatedCounter = ({ end, duration = 1500 }) => {
+  const [count, setCount] = useState(0);
+
+  useEffect(() => {
+    let startTime;
+    const animate = (timestamp) => {
+      if (!startTime) startTime = timestamp;
+      const progress = Math.min((timestamp - startTime) / duration, 1);
+      const easeOut = 1 - Math.pow(1 - progress, 3);
+      setCount(Math.floor(easeOut * end));
+      if (progress < 1) requestAnimationFrame(animate);
+    };
+    requestAnimationFrame(animate);
+  }, [end, duration]);
+
+  return <span>{count.toLocaleString()}</span>;
+};
+
+// Stat Card Component
+const StatCard = ({ icon: Icon, label, value, color, trend, trendValue }) => {
+  const isPositive = trend === "up";
+  return (
+    <div className="bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)] hover:border-[var(--border-hover)] transition-all group relative overflow-hidden">
+      <div
+        className="absolute -top-10 -right-10 w-32 h-32 rounded-full opacity-10 blur-2xl transition-opacity group-hover:opacity-20"
+        style={{ backgroundColor: color }}
+      />
+      <div className="relative">
+        <div className="flex items-start justify-between mb-3">
+          <div
+            className="p-2.5 rounded-xl"
+            style={{ backgroundColor: `${color}15` }}
+          >
+            <Icon className="w-5 h-5" style={{ color }} />
+          </div>
+          {trend && (
+            <div className={`flex items-center gap-1 text-xs font-medium ${isPositive ? 'text-[var(--success)]' : 'text-[var(--danger)]'}`}>
+              {isPositive ? '↑' : '↓'} {trendValue}%
+            </div>
+          )}
+        </div>
+        <p className="text-3xl font-bold text-[var(--text-primary)] mb-1">
+          <AnimatedCounter end={value} />
+        </p>
+        <p className="text-xs text-[var(--text-muted)] uppercase tracking-wider font-medium">{label}</p>
+      </div>
+    </div>
+  );
+};
 
 const EmployeesRanking = () => {
   const navigate = useNavigate();
@@ -41,6 +98,13 @@ const EmployeesRanking = () => {
   });
   const [limit, setLimit] = useState(10);
   const [searchTerm, setSearchTerm] = useState("");
+
+  // Derived stats for header
+  const totalEmployees = pagination.totalEmployees || 0;
+  const topScorer = employees.length > 0 ? employees[0] : null;
+  const avgScore = employees.length > 0 
+    ? Math.round(employees.reduce((acc, emp) => acc + emp.percentage, 0) / employees.length) 
+    : 0;
 
   useEffect(() => {
     fetchRankings();
@@ -96,8 +160,8 @@ const EmployeesRanking = () => {
   const getRankIcon = useCallback((rank) => {
     if (rank === 1) {
       return (
-        <div className="w-8 h-8 rounded-full bg-amber-500/20 flex items-center justify-center border border-amber-500/30">
-          <Crown className="w-4 h-4 text-amber-500" />
+        <div className="w-8 h-8 rounded-full bg-yellow-500/20 flex items-center justify-center border border-yellow-500/30">
+          <Crown className="w-4 h-4 text-yellow-500" />
         </div>
       );
     }
@@ -123,9 +187,9 @@ const EmployeesRanking = () => {
   }, []);
 
   const getRankStyle = useCallback((rank) => {
-    if (rank === 1) return "border-l-4 border-l-amber-500 bg-amber-50/50";
-    if (rank === 2) return "border-l-4 border-l-gray-400 bg-gray-50/50";
-    if (rank === 3) return "border-l-4 border-l-amber-700 bg-amber-50/30";
+    if (rank === 1) return "border-l-4 border-l-yellow-500 bg-yellow-500/5";
+    if (rank === 2) return "border-l-4 border-l-gray-400 bg-gray-400/5";
+    if (rank === 3) return "border-l-4 border-l-amber-700 bg-amber-700/5";
     return "border-l-4 border-l-transparent";
   }, []);
 
@@ -171,257 +235,327 @@ const EmployeesRanking = () => {
           },
         }}
       />
-      <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden">
-        {/* Header */}
-        <div className="bg-[var(--bg-secondary)] border-b border-[var(--border-color)] px-4 sm:px-6 py-3 sm:py-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div className="flex items-center gap-2 sm:gap-3">
-              <button
-                onClick={() => navigate("/admin/dashboard")}
-                className="p-1.5 hover:bg-[var(--bg-hover)] rounded-lg transition text-[var(--text-muted)] hover:text-[var(--text-primary)]"
-              >
-                <ArrowLeft className="w-4 h-4 sm:w-5 sm:h-5" />
-              </button>
-              <div className="flex items-center gap-2">
-                <Trophy className="w-5 h-5 sm:w-6 sm:h-6 text-amber-500" />
+      
+      <div className="space-y-6 p-4 md:p-6 max-w-[1400px] mx-auto">
+        {/* Header Section */}
+        <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden">
+          <div className="relative bg-gradient-to-r from-[var(--bg-secondary)] to-transparent border-b border-[var(--border-color)] px-6 py-6">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div className="flex items-center gap-4">
+                <button
+                  onClick={() => navigate("/admin/dashboard")}
+                  className="p-2 hover:bg-[var(--bg-hover)] rounded-xl transition text-[var(--text-muted)] hover:text-[var(--text-primary)]"
+                >
+                  <ArrowLeft className="w-5 h-5" />
+                </button>
+                <div className="relative">
+                  <div className="bg-yellow-500/15 p-3 rounded-2xl">
+                    <Trophy className="w-7 h-7 text-yellow-500" />
+                  </div>
+                  <div className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-[var(--success)] rounded-full border-2 border-[var(--bg-card)]" />
+                </div>
                 <div>
-                  <h1 className="text-base sm:text-lg font-semibold text-[var(--text-primary)]">Employee Rankings</h1>
-                  <p className="text-xs text-[var(--text-muted)]">{pagination.totalEmployees} employees</p>
+                  <h1 className="text-2xl font-bold text-[var(--text-primary)]">Employee Rankings</h1>
+                  <p className="text-sm text-[var(--text-secondary)] mt-0.5">Performance leaderboard & insights</p>
                 </div>
               </div>
+              <div className="flex items-center gap-3">
+                <div className="hidden md:flex items-center gap-2 px-3 py-2 rounded-xl bg-[var(--bg-primary)] border border-[var(--border-color)]">
+                  <Calendar className="w-4 h-4 text-[var(--text-muted)]" />
+                  <span className="text-xs text-[var(--text-secondary)]">{new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}</span>
+                </div>
+                <button 
+                  onClick={() => navigate("/admin/dashboard")}
+                  className="inline-flex items-center gap-2 bg-[var(--accent-primary)] hover:bg-[var(--accent-hover)] text-[var(--text-inverse)] px-4 py-2 rounded-lg text-sm font-medium transition shadow-lg shadow-[var(--accent-primary)]/20"
+                >
+                  <Users className="w-4 h-4" />
+                  <span className="hidden sm:inline">Dashboard</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Stats Grid */}
+          <div className="p-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <StatCard
+                icon={Users}
+                label="Total Employees"
+                value={totalEmployees}
+                color="var(--accent-primary)"
+                trend="up"
+                trendValue={0}
+              />
+              <StatCard
+                icon={Trophy}
+                label="Top Scorer"
+                value={topScorer?.percentage || 0}
+                color="var(--warning)"
+                trend="up"
+                trendValue={0}
+              />
+              <StatCard
+                icon={BarChart3}
+                label="Average Score"
+                value={avgScore}
+                color="var(--accent-light)"
+                trend="up"
+                trendValue={0}
+              />
+              <StatCard
+                icon={CheckCircle2}
+                label="Completed Tasks"
+                value={employees.reduce((acc, emp) => acc + (emp.completedTasks || 0), 0)}
+                color="var(--success)"
+                trend="up"
+                trendValue={0}
+              />
             </div>
           </div>
         </div>
 
-        <div className="p-3 sm:p-4 md:p-5">
+        {/* Main Content */}
+        <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden">
           {/* Search & Filters */}
-          <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 mb-4">
-            <div className="relative flex-1 max-w-sm">
-              <Search className="w-3.5 h-3.5 text-[var(--text-muted)] absolute left-2.5 top-1/2 -translate-y-1/2" />
-              <input
-                type="text"
-                placeholder="Search employee..."
-                value={searchTerm}
-                onChange={(e) => {
-                  setSearchTerm(e.target.value);
-                  setPagination((prev) => ({ ...prev, currentPage: 1 }));
-                }}
-                className="w-full bg-[var(--bg-secondary)] border border-[var(--border-color)] focus:border-[var(--accent-primary)] focus:ring-1 focus:ring-[var(--accent-primary)] text-[var(--text-primary)] placeholder-[var(--text-muted)] rounded-lg pl-8 pr-3 py-1.5 text-sm outline-none transition-colors"
-              />
-            </div>
+          <div className="p-4 md:p-6 border-b border-[var(--border-color)]">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+              <div className="relative flex-1 max-w-sm">
+                <Search className="w-4 h-4 text-[var(--text-muted)] absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  placeholder="Search employee..."
+                  value={searchTerm}
+                  onChange={(e) => {
+                    setSearchTerm(e.target.value);
+                    setPagination((prev) => ({ ...prev, currentPage: 1 }));
+                  }}
+                  className="w-full bg-[var(--bg-secondary)] border border-[var(--border-color)] focus:border-[var(--accent-primary)] focus:ring-2 focus:ring-[var(--accent-primary)]/20 text-[var(--text-primary)] placeholder-[var(--text-muted)] rounded-xl pl-10 pr-4 py-2.5 text-sm outline-none transition-colors"
+                />
+              </div>
 
-            <div className="flex items-center gap-1.5 flex-wrap">
-              <Filter className="w-3.5 h-3.5 text-[var(--text-muted)]" />
-              <button
-                onClick={() => handleFilterChange("marks")}
-                className={`px-2.5 py-1 rounded-md text-xs font-medium transition ${
-                  filters.filterBy === "marks"
-                    ? "bg-[var(--accent-primary)] text-[var(--text-inverse)]"
-                    : "bg-[var(--bg-secondary)] text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] border border-[var(--border-color)]"
-                }`}
-              >
-                <span className="flex items-center gap-1">
-                  <Star className="w-3 h-3" />
-                  Marks
-                </span>
-              </button>
-              <button
-                onClick={() => handleFilterChange("percentage")}
-                className={`px-2.5 py-1 rounded-md text-xs font-medium transition ${
-                  filters.filterBy === "percentage"
-                    ? "bg-[var(--accent-primary)] text-[var(--text-inverse)]"
-                    : "bg-[var(--bg-secondary)] text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] border border-[var(--border-color)]"
-                }`}
-              >
-                <span className="flex items-center gap-1">
-                  <BarChart3 className="w-3 h-3" />
-                  Avg %
-                </span>
-              </button>
-
-              <div className="w-px h-5 bg-[var(--border-color)] mx-1 hidden sm:block"></div>
-
-              <button
-                onClick={() => handleSortChange("desc")}
-                className={`px-2 py-1 rounded-md text-xs font-medium transition flex items-center gap-0.5 ${
-                  filters.sortOrder === "desc"
-                    ? "bg-[var(--accent-primary)] text-[var(--text-inverse)]"
-                    : "bg-[var(--bg-secondary)] text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] border border-[var(--border-color)]"
-                }`}
-              >
-                <ChevronDown className="w-3 h-3" />
-                High
-              </button>
-              <button
-                onClick={() => handleSortChange("asc")}
-                className={`px-2 py-1 rounded-md text-xs font-medium transition flex items-center gap-0.5 ${
-                  filters.sortOrder === "asc"
-                    ? "bg-[var(--accent-primary)] text-[var(--text-inverse)]"
-                    : "bg-[var(--bg-secondary)] text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] border border-[var(--border-color)]"
-                }`}
-              >
-                <ChevronUp className="w-3 h-3" />
-                Low
-              </button>
-
-              <div className="w-px h-5 bg-[var(--border-color)] mx-1 hidden sm:block"></div>
-
-              <select
-                value={limit}
-                onChange={(e) => {
-                  setLimit(Number(e.target.value));
-                  setPagination((prev) => ({ ...prev, currentPage: 1 }));
-                }}
-                className="bg-[var(--bg-secondary)] border border-[var(--border-color)] focus:border-[var(--accent-primary)] focus:ring-1 focus:ring-[var(--accent-primary)] text-[var(--text-primary)] rounded-md px-2 py-1 text-xs outline-none transition-colors"
-              >
-                <option value={5}>5</option>
-                <option value={10}>10</option>
-                <option value={20}>20</option>
-                <option value={50}>50</option>
-              </select>
-            </div>
-          </div>
-
-          {/* Active Filters */}
-          {(filters.filterBy !== "marks" || filters.sortOrder !== "desc" || searchTerm) && (
-            <div className="flex flex-wrap items-center gap-1.5 mb-3">
-              <span className="text-[10px] text-[var(--text-muted)]">Filters:</span>
-              <span className="px-2 py-0.5 bg-[var(--accent-primary)]/10 text-[var(--accent-primary)] text-[10px] rounded-full border border-[var(--accent-primary)]/20">
-                {filters.filterBy === "marks" ? "Marks" : "Avg %"} · {filters.sortOrder === "desc" ? "↓" : "↑"}
-              </span>
-              {searchTerm && (
-                <span className="px-2 py-0.5 bg-[var(--bg-secondary)] text-[var(--text-muted)] text-[10px] rounded-full border border-[var(--border-color)]">
-                  "{searchTerm}"
-                </span>
-              )}
-            </div>
-          )}
-
-          {/* Loading */}
-          {loading ? (
-            <div className="space-y-2">
-              {[...Array(4)].map((_, i) => (
-                <div key={i} className="bg-[var(--bg-secondary)] rounded-lg border border-[var(--border-color)] p-3 animate-pulse">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-[var(--bg-hover)] rounded-full"></div>
-                    <div className="flex-1 space-y-1.5">
-                      <div className="h-3.5 bg-[var(--bg-hover)] rounded w-1/4"></div>
-                      <div className="h-2.5 bg-[var(--bg-hover)] rounded w-1/3"></div>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : employees.length === 0 ? (
-            <div className="bg-[var(--bg-secondary)] rounded-lg border border-[var(--border-color)] p-8 text-center">
-              <User className="w-12 h-12 text-[var(--text-muted)] mx-auto mb-2" />
-              <p className="text-sm text-[var(--text-secondary)]">No employees found</p>
-            </div>
-          ) : (
-            <div className="space-y-2">
-              {employees.map((employee) => (
-                <div
-                  key={employee.userId}
-                  className={`bg-[var(--bg-secondary)] rounded-lg border border-[var(--border-color)] p-3 transition hover:border-[var(--border-hover)] ${getRankStyle(employee.rank)}`}
+              <div className="flex items-center gap-2 flex-wrap">
+                <Filter className="w-4 h-4 text-[var(--text-muted)]" />
+                
+                <button
+                  onClick={() => handleFilterChange("marks")}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition ${
+                    filters.filterBy === "marks"
+                      ? "bg-[var(--accent-primary)] text-[var(--text-inverse)]"
+                      : "bg-[var(--bg-secondary)] text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] border border-[var(--border-color)]"
+                  }`}
                 >
-                  <div className="flex items-center gap-3">
-                    {/* Rank */}
-                    <div className="flex-shrink-0">
-                      {getRankIcon(employee.rank)}
-                    </div>
+                  <span className="flex items-center gap-1.5">
+                    <Star className="w-3.5 h-3.5" />
+                    Marks
+                  </span>
+                </button>
+                <button
+                  onClick={() => handleFilterChange("percentage")}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition ${
+                    filters.filterBy === "percentage"
+                      ? "bg-[var(--accent-primary)] text-[var(--text-inverse)]"
+                      : "bg-[var(--bg-secondary)] text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] border border-[var(--border-color)]"
+                  }`}
+                >
+                  <span className="flex items-center gap-1.5">
+                    <BarChart3 className="w-3.5 h-3.5" />
+                    Avg %
+                  </span>
+                </button>
 
-                    {/* User Info */}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[var(--accent-primary)] to-[var(--accent-hover)] flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
-                          {employee.user?.name?.charAt(0)?.toUpperCase() || "?"}
-                        </div>
-                        <div>
-                          <h3 className="font-medium text-sm text-[var(--text-primary)] truncate">
-                            {employee.user?.name || "Unknown"}
-                          </h3>
-                          <p className="text-xs text-[var(--text-muted)] truncate">{employee.user?.email || ""}</p>
-                        </div>
-                      </div>
-                    </div>
+                <div className="w-px h-6 bg-[var(--border-color)] mx-1 hidden sm:block" />
 
-                    {/* Stats */}
-                    <div className="flex items-center gap-4 flex-shrink-0">
-                      <div className="text-center">
-                        <p className="text-sm font-bold text-[var(--text-primary)]">{employee.totalMarks}</p>
-                        <p className="text-[8px] text-[var(--text-muted)]">Marks</p>
-                      </div>
-                      <div className="text-center">
-                        <p className={`text-sm font-bold ${getMarksColor(employee.percentage)}`}>
-                          {employee.percentage}%
-                        </p>
-                        <p className="text-[8px] text-[var(--text-muted)]">Avg</p>
-                      </div>
-                      <div className="text-center">
-                        <p className="text-sm font-bold text-emerald-600">{employee.completedTasks}</p>
-                        <p className="text-[8px] text-[var(--text-muted)]">Done</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
+                <button
+                  onClick={() => handleSortChange("desc")}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition flex items-center gap-1 ${
+                    filters.sortOrder === "desc"
+                      ? "bg-[var(--accent-primary)] text-[var(--text-inverse)]"
+                      : "bg-[var(--bg-secondary)] text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] border border-[var(--border-color)]"
+                  }`}
+                >
+                  <ChevronDown className="w-3.5 h-3.5" />
+                  High
+                </button>
+                <button
+                  onClick={() => handleSortChange("asc")}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition flex items-center gap-1 ${
+                    filters.sortOrder === "asc"
+                      ? "bg-[var(--accent-primary)] text-[var(--text-inverse)]"
+                      : "bg-[var(--bg-secondary)] text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] border border-[var(--border-color)]"
+                  }`}
+                >
+                  <ChevronUp className="w-3.5 h-3.5" />
+                  Low
+                </button>
 
-          {/* Pagination - Centered */}
-          {!loading && employees.length > 0 && (
-            <div className="mt-4 bg-[var(--bg-secondary)] rounded-lg border border-[var(--border-color)] px-3 py-2">
-              <div className="flex flex-col items-center gap-1.5">
-                <div className="flex items-center justify-center gap-1">
-                  <button
-                    onClick={() => handlePageChange(pagination.currentPage - 1)}
-                    disabled={!pagination.hasPrevPage}
-                    className={`p-1 rounded-md transition ${
-                      pagination.hasPrevPage
-                        ? "hover:bg-[var(--bg-hover)] text-[var(--text-primary)]"
-                        : "text-[var(--text-muted)] cursor-not-allowed opacity-40"
-                    }`}
-                  >
-                    <ChevronLeft className="w-4 h-4" />
-                  </button>
+                <div className="w-px h-6 bg-[var(--border-color)] mx-1 hidden sm:block" />
 
-                  {renderPaginationButtons.map((page, index) => (
-                    typeof page === 'number' ? (
-                      <button
-                        key={index}
-                        onClick={() => handlePageChange(page)}
-                        className={`w-7 h-7 rounded-md text-xs font-medium transition ${
-                          pagination.currentPage === page
-                            ? "bg-[var(--accent-primary)] text-[var(--text-inverse)]"
-                            : "hover:bg-[var(--bg-hover)] text-[var(--text-secondary)]"
-                        }`}
-                      >
-                        {page}
-                      </button>
-                    ) : (
-                      <span key={index} className="px-1 text-[var(--text-muted)] text-xs">…</span>
-                    )
-                  ))}
-
-                  <button
-                    onClick={() => handlePageChange(pagination.currentPage + 1)}
-                    disabled={!pagination.hasNextPage}
-                    className={`p-1 rounded-md transition ${
-                      pagination.hasNextPage
-                        ? "hover:bg-[var(--bg-hover)] text-[var(--text-primary)]"
-                        : "text-[var(--text-muted)] cursor-not-allowed opacity-40"
-                    }`}
-                  >
-                    <ChevronRight className="w-4 h-4" />
-                  </button>
-                </div>
-
-                <p className="text-xs text-[var(--text-muted)] text-center">
-                  {Math.min((pagination.currentPage - 1) * pagination.limit + 1, pagination.totalEmployees)} - {Math.min(pagination.currentPage * pagination.limit, pagination.totalEmployees)} of {pagination.totalEmployees}
-                </p>
+                <select
+                  value={limit}
+                  onChange={(e) => {
+                    setLimit(Number(e.target.value));
+                    setPagination((prev) => ({ ...prev, currentPage: 1 }));
+                  }}
+                  className="bg-[var(--bg-secondary)] border border-[var(--border-color)] focus:border-[var(--accent-primary)] focus:ring-2 focus:ring-[var(--accent-primary)]/20 text-[var(--text-primary)] rounded-lg px-3 py-1.5 text-xs outline-none transition-colors"
+                >
+                  <option value={5}>5</option>
+                  <option value={10}>10</option>
+                  <option value={20}>20</option>
+                  <option value={50}>50</option>
+                </select>
               </div>
             </div>
-          )}
+
+            {/* Active Filters */}
+            {(filters.filterBy !== "marks" || filters.sortOrder !== "desc" || searchTerm) && (
+              <div className="flex flex-wrap items-center gap-1.5 mt-3">
+                <span className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider font-medium">Filters:</span>
+                <span className="px-2.5 py-0.5 bg-[var(--accent-primary)]/10 text-[var(--accent-primary)] text-[10px] rounded-full border border-[var(--accent-primary)]/20 font-medium">
+                  {filters.filterBy === "marks" ? "Marks" : "Avg %"} · {filters.sortOrder === "desc" ? "↓" : "↑"}
+                </span>
+                {searchTerm && (
+                  <span className="px-2.5 py-0.5 bg-[var(--bg-secondary)] text-[var(--text-muted)] text-[10px] rounded-full border border-[var(--border-color)] font-medium">
+                    "{searchTerm}"
+                  </span>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Employee List */}
+          <div className="p-4 md:p-6">
+            {loading ? (
+              <div className="space-y-3">
+                {[...Array(4)].map((_, i) => (
+                  <div key={i} className="bg-[var(--bg-secondary)] rounded-xl border border-[var(--border-color)] p-4 animate-pulse">
+                    <div className="flex items-center gap-4">
+                      <div className="w-10 h-10 bg-[var(--bg-hover)] rounded-full"></div>
+                      <div className="flex-1 space-y-2">
+                        <div className="h-4 bg-[var(--bg-hover)] rounded w-1/4"></div>
+                        <div className="h-3 bg-[var(--bg-hover)] rounded w-1/3"></div>
+                      </div>
+                      <div className="flex gap-4">
+                        <div className="h-8 w-12 bg-[var(--bg-hover)] rounded"></div>
+                        <div className="h-8 w-12 bg-[var(--bg-hover)] rounded"></div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : employees.length === 0 ? (
+              <div className="bg-[var(--bg-secondary)] rounded-xl border border-[var(--border-color)] p-12 text-center">
+                <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-[var(--bg-hover)] flex items-center justify-center">
+                  <User className="w-8 h-8 text-[var(--text-muted)]" />
+                </div>
+                <p className="text-sm font-medium text-[var(--text-secondary)]">No employees found</p>
+                <p className="text-xs text-[var(--text-muted)] mt-1">Try adjusting your search or filters</p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {employees.map((employee) => (
+                  <div
+                    key={employee.userId}
+                    className={`bg-[var(--bg-secondary)] rounded-xl border border-[var(--border-color)] p-4 transition-all hover:border-[var(--border-hover)] hover:bg-[var(--bg-hover)]/30 ${getRankStyle(employee.rank)}`}
+                  >
+                    <div className="flex items-center gap-4">
+                      {/* Rank */}
+                      <div className="flex-shrink-0">
+                        {getRankIcon(employee.rank)}
+                      </div>
+
+                      {/* User Info */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[var(--accent-primary)] to-[var(--accent-hover)] flex items-center justify-center text-white text-sm font-bold flex-shrink-0 shadow-lg shadow-[var(--accent-primary)]/20">
+                            {employee.user?.name?.charAt(0)?.toUpperCase() || "?"}
+                          </div>
+                          <div>
+                            <h3 className="font-semibold text-sm text-[var(--text-primary)] truncate">
+                              {employee.user?.name || "Unknown"}
+                            </h3>
+                            <p className="text-xs text-[var(--text-muted)] truncate">{employee.user?.email || ""}</p>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Stats */}
+                      <div className="flex items-center gap-6 flex-shrink-0">
+                        <div className="text-center">
+                          <p className="text-sm font-bold text-[var(--text-primary)]">{employee.totalMarks}</p>
+                          <p className="text-[8px] text-[var(--text-muted)] uppercase tracking-wider">Marks</p>
+                        </div>
+                        <div className="text-center">
+                          <p className={`text-sm font-bold ${getMarksColor(employee.percentage)}`}>
+                            {employee.percentage}%
+                          </p>
+                          <p className="text-[8px] text-[var(--text-muted)] uppercase tracking-wider">Avg</p>
+                        </div>
+                        <div className="text-center">
+                          <p className="text-sm font-bold text-emerald-600">{employee.completedTasks || 0}</p>
+                          <p className="text-[8px] text-[var(--text-muted)] uppercase tracking-wider">Done</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Pagination */}
+            {!loading && employees.length > 0 && (
+              <div className="mt-6 bg-[var(--bg-secondary)] rounded-xl border border-[var(--border-color)] px-4 py-3">
+                <div className="flex flex-col items-center gap-2">
+                  <div className="flex items-center justify-center gap-1">
+                    <button
+                      onClick={() => handlePageChange(pagination.currentPage - 1)}
+                      disabled={!pagination.hasPrevPage}
+                      className={`p-2 rounded-lg transition ${
+                        pagination.hasPrevPage
+                          ? "hover:bg-[var(--bg-hover)] text-[var(--text-primary)]"
+                          : "text-[var(--text-muted)] cursor-not-allowed opacity-40"
+                      }`}
+                    >
+                      <ChevronLeft className="w-4 h-4" />
+                    </button>
+
+                    {renderPaginationButtons.map((page, index) => (
+                      typeof page === 'number' ? (
+                        <button
+                          key={index}
+                          onClick={() => handlePageChange(page)}
+                          className={`w-8 h-8 rounded-lg text-xs font-medium transition ${
+                            pagination.currentPage === page
+                              ? "bg-[var(--accent-primary)] text-[var(--text-inverse)] shadow-lg shadow-[var(--accent-primary)]/20"
+                              : "hover:bg-[var(--bg-hover)] text-[var(--text-secondary)]"
+                          }`}
+                        >
+                          {page}
+                        </button>
+                      ) : (
+                        <span key={index} className="px-1 text-[var(--text-muted)] text-xs">…</span>
+                      )
+                    ))}
+
+                    <button
+                      onClick={() => handlePageChange(pagination.currentPage + 1)}
+                      disabled={!pagination.hasNextPage}
+                      className={`p-2 rounded-lg transition ${
+                        pagination.hasNextPage
+                          ? "hover:bg-[var(--bg-hover)] text-[var(--text-primary)]"
+                          : "text-[var(--text-muted)] cursor-not-allowed opacity-40"
+                      }`}
+                    >
+                      <ChevronRight className="w-4 h-4" />
+                    </button>
+                  </div>
+
+                  <p className="text-xs text-[var(--text-muted)] text-center">
+                    {Math.min((pagination.currentPage - 1) * pagination.limit + 1, pagination.totalEmployees)} - {Math.min(pagination.currentPage * pagination.limit, pagination.totalEmployees)} of {pagination.totalEmployees} employees
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </>

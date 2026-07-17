@@ -46,7 +46,6 @@ const ProjectDetail = () => {
     name: "",
     description: "",
     obtainedMarks: 0,
-    client: "",
     selectedEmployees: [],
     startDate: "",
     deadline: "",
@@ -56,7 +55,6 @@ const ProjectDetail = () => {
     name: "",
     description: "",
     obtainedMarks: 0,
-    client: "",
     selectedEmployees: [],
     startDate: "",
     deadline: "",
@@ -295,7 +293,6 @@ const ProjectDetail = () => {
           completed: false,
           tested: false,
           obtainedMarks: Number(taskForm.obtainedMarks),
-          client: taskForm.client,
           user: employee._id,
           startDate: taskForm.startDate,
           endDate: taskForm.deadline,
@@ -358,7 +355,6 @@ const ProjectDetail = () => {
           name: taskForm.name,
           description: taskForm.description,
           obtainedMarks: Number(taskForm.obtainedMarks),
-          client: taskForm.client,
           startDate: taskForm.startDate,
           endDate: taskForm.deadline,
         });
@@ -373,7 +369,6 @@ const ProjectDetail = () => {
           completed: false,
           tested: false,
           obtainedMarks: Number(taskForm.obtainedMarks),
-          client: taskForm.client,
           user: userId,
           startDate: taskForm.startDate,
           endDate: taskForm.deadline,
@@ -441,7 +436,6 @@ const ProjectDetail = () => {
       name: firstTask.name || "",
       description: firstTask.description || "",
       obtainedMarks: firstTask.obtainedMarks || 0,
-      client: firstTask.client || "",
       selectedEmployees: allEmployees,
       startDate: firstTask.startDate ? new Date(firstTask.startDate).toISOString().split("T")[0] : "",
       deadline: firstTask.endDate ? new Date(firstTask.endDate).toISOString().split("T")[0] : "",
@@ -629,11 +623,7 @@ const ProjectDetail = () => {
 
           {/* Project Info */}
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:flex lg:flex-wrap gap-2 sm:gap-4 mt-3 text-xs sm:text-sm">
-            <div className="flex items-center gap-1.5 text-[var(--text-secondary)]">
-              <Briefcase className="w-3.5 h-3.5 text-[var(--text-muted)] flex-shrink-0" />
-              <span className="text-[var(--text-muted)]">Client:</span>
-              <span className="text-[var(--text-primary)] font-medium truncate">{project.client || "N/A"}</span>
-            </div>
+           
             <div className="flex items-center gap-1.5 text-[var(--text-secondary)]">
               <Calendar className="w-3.5 h-3.5 text-[var(--text-muted)] flex-shrink-0" />
               <span className="text-[var(--text-muted)]">Start:</span>
@@ -1136,19 +1126,7 @@ const ProjectDetail = () => {
                       />
                     </div>
 
-                    <div>
-                      <label className="block text-[10px] font-medium text-[var(--text-muted)] uppercase tracking-wider mb-1">
-                        Client
-                      </label>
-                      <input
-                        name="client"
-                        placeholder="Enter client name"
-                        value={taskForm.client}
-                        onChange={handleTaskChange}
-                        className="w-full bg-[var(--bg-secondary)] border border-[var(--border-color)] focus:border-[var(--accent-primary)] focus:ring-1 focus:ring-[var(--accent-primary)] text-[var(--text-primary)] placeholder-[var(--text-muted)] rounded-lg px-3 py-2 text-sm outline-none transition-colors"
-                      />
-                    </div>
-
+                   
                     <div className="flex flex-col sm:flex-row gap-2 pt-2">
                       <button
                         onClick={editTask ? updateTask : addTask}
